@@ -1,0 +1,51 @@
+server:
+  port: ${GATEWAY_PORT:8090}
+
+spring:
+  application:
+    name: gateway-service
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+
+            - id: auth
+              uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/auth/**
+
+            - id: products
+              uri: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/productos/**,/api/categorias/**,/api/marcas/**
+
+            - id: inventory
+              uri: ${INVENTORY_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/inventario/**
+
+            - id: sales
+              uri: ${SALES_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/ventas/**,/api/clientes/**
+
+            - id: alerts
+              uri: ${ALERT_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/alertas/**
+
+            - id: reports
+              uri: ${REPORT_SERVICE_URL:http://localhost:8086}
+              predicates:
+                - Path=/api/reportes/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+jwt:
+  secret: ${JWT_SECRET:MYF-Perfumes-Dev-Secret-Key-Change-In-Production-2026-12345}

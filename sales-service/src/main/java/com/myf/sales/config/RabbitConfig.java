@@ -1,0 +1,1 @@
+package com.myf.sales.config; import org.springframework.amqp.core.TopicExchange; import org.springframework.context.annotation.*; @Configuration public class RabbitConfig{public static final String EXCHANGE="myf.events";@Bean TopicExchange eventsExchange(){return new TopicExchange(EXCHANGE,true,false);}}

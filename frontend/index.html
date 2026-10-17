@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="MYF Perfumes - perfumes árabes, diseñador y decants de 5 ml, 10 ml y 30 ml.">
+  <title>MYF Perfumes | Tienda</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="store.css">
+</head>
+<body>
+<div class="announce">Perfumes originales · Decants de 5 ml, 10 ml y 30 ml · Stock en tiempo real</div>
+<header class="site-header">
+  <a class="brand" href="#top"><span class="brand-mark">MYF</span><span><b>MYF Perfumes</b><small>Perfumería & Decants</small></span></a>
+  <nav class="desktop-nav"><a href="#catalogo">Catálogo</a><a href="#decants">Decants</a><a href="#nosotros">Nosotros</a></nav>
+  <div class="header-actions">
+    <button class="icon-button" id="openSearch" aria-label="Buscar">⌕</button>
+    <button class="cart-button" id="openCart">Carrito <span id="cartCount">0</span></button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Fragancias que dejan huella</span>
+      <h1>Tu próxima fragancia favorita está aquí.</h1>
+      <p>Descubre perfumes completos y prueba antes con decants. Elige 5 ml, 10 ml o 30 ml directamente desde cada fragancia.</p>
+      <div class="hero-actions"><a class="btn primary" href="#catalogo">Ver catálogo</a><a class="btn secondary" href="#decants">Explorar decants</a></div>
+      <div class="hero-points"><span>✓ Stock real</span><span>✓ Presentaciones flexibles</span><span>✓ Compra sencilla</span></div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <div class="bottle bottle-one"><span>MYF</span><i>100 ml</i></div>
+      <div class="bottle bottle-two"><span>DECANT</span><i>10 ml</i></div>
+      <div class="glow"></div>
+    </div>
+  </section>
+
+  <section class="benefits">
+    <article><b>Perfume completo</b><span>Botellas originales listas para llevar.</span></article>
+    <article><b>Decants</b><span>Prueba 5 ml, 10 ml o 30 ml antes de decidir.</span></article>
+    <article><b>Disponibilidad real</b><span>El catálogo consulta el inventario del sistema.</span></article>
+  </section>
+
+  <section class="catalog-section" id="catalogo">
+    <div class="section-heading">
+      <div><span class="eyebrow">Catálogo</span><h2>Nuestras fragancias</h2><p id="productCount">Cargando productos...</p></div>
+      <button class="filter-toggle" id="filterButton">Filtros</button>
+    </div>
+    <div class="catalog-tools" id="filtersPanel">
+      <label class="search-field"><span>⌕</span><input id="searchProduct" placeholder="Buscar perfume o marca"></label>
+      <select id="filterBrand"><option value="">Todas las marcas</option></select>
+      <select id="filterCategory"><option value="">Todas las categorías</option></select>
+      <select id="filterGender"><option value="">Todos</option><option value="HOMBRE">Hombre</option><option value="MUJER">Mujer</option><option value="UNISEX">Unisex</option></select>
+      <select id="filterType"><option value="">Todas las presentaciones</option><option value="BOTELLA">Botella</option><option value="DECANT">Decants</option></select>
+      <button class="text-button" id="clearFilters">Limpiar</button>
+    </div>
+    <div class="product-grid" id="catalogProducts"><div class="loading-card">Cargando catálogo...</div></div>
+  </section>
+
+  <section class="decant-banner" id="decants">
+    <div><span class="eyebrow light">Descubre sin arriesgar</span><h2>Prueba primero con un decant.</h2><p>Escoge 5 ml, 10 ml o 30 ml. El sistema descuenta exactamente los mililitros utilizados para que siempre veas disponibilidad real.</p></div>
+    <a class="btn light-btn" href="#catalogo" data-decant-filter>Ver decants</a>
+  </section>
+
+  <section class="about" id="nosotros">
+    <span class="eyebrow">MYF Perfumes</span><h2>Más que vender perfumes: ayudarte a encontrar el indicado.</h2><p>Una tienda pensada para explorar, comparar presentaciones y comprar con información clara de disponibilidad.</p>
+  </section>
+</main>
+
+<footer><div class="brand footer-brand"><span class="brand-mark">MYF</span><span><b>MYF Perfumes</b><small>Perfumería & Decants</small></span></div><p>© 2026 MYF Perfumes. Todos los derechos reservados.</p><a href="admin.html">Acceso administrativo</a></footer>
+
+<div class="overlay" id="productOverlay"></div>
+<aside class="product-drawer" id="productPanel" aria-hidden="true">
+  <button class="drawer-close" id="closeProduct">×</button>
+  <div id="productDetail"></div>
+</aside>
+
+<div class="overlay" id="cartOverlay"></div>
+<aside class="cart-panel" id="cartPanel" aria-hidden="true">
+  <div class="cart-head"><div><small>Tu selección</small><h3>Carrito</h3></div><button class="drawer-close" id="closeCart">×</button></div>
+  <div class="cart-items" id="cartItems"></div>
+  <div class="cart-summary"><div><span>Subtotal</span><b id="cartSubtotal">S/ 0.00</b></div><div class="total"><span>Total</span><b id="cartTotal">S/ 0.00</b></div><button class="btn primary full" id="checkoutButton">Continuar compra</button></div>
+</aside>
+
+<div class="modal-wrap" id="checkoutModal" aria-hidden="true">
+  <div class="modal-card">
+    <button class="drawer-close" id="closeCheckout">×</button>
+    <span class="eyebrow">Finalizar compra</span><h2>Tus datos</h2>
+    <form id="checkoutForm">
+
+      <div class="form-grid">
+
+        <label>
+          Nombre completo
+          <input id="customerName" required>
+        </label>
+
+        <label>
+          Teléfono
+          <input id="customerPhone" required>
+        </label>
+
+        <label>
+          Correo
+          <input id="customerEmail" type="email">
+        </label>
+
+      </div>
+
+
+      <!-- TIPO DE ENTREGA -->
+
+      <label>
+        Tipo de entrega
+
+        <select id="customerDelivery" required>
+          <option value="RECOJO">Recojo</option>
+          <option value="DELIVERY">Delivery</option>
+        </select>
+      </label>
+
+
+      <!-- DIRECCIÓN - SOLO PARA DELIVERY -->
+
+      <div id="deliveryAddressBox" style="display:none;">
+
+        <label>
+          Dirección de entrega / referencia
+
+          <input
+                  id="customerAddress"
+                  placeholder="Ej. Av. Lima 123, referencia..."
+          >
+
+        </label>
+
+      </div>
+
+
+      <!-- MÉTODO DE PAGO -->
+
+      <label>
+        Método de pago
+
+        <select id="customerPayment" required>
+          <option value="YAPE">Yape</option>
+          <option value="PLIN">Plin</option>
+          <option value="TRANSFERENCIA">Transferencia bancaria</option>
+          <option value="EFECTIVO">Efectivo</option>
+        </select>
+
+      </label>
+
+
+      <!-- INFORMACIÓN DEL MÉTODO DE PAGO -->
+
+      <div id="paymentInfo" style="display:none;"></div>
+
+      <!-- COMPROBANTE DE PAGO -->
+
+      <div id="paymentProofBox" style="display:none; margin-top:15px;">
+
+        <label>
+          Adjuntar comprobante de pago
+
+          <input
+                  id="paymentProof"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+          >
+        </label>
+
+        <small style="display:block; margin-top:6px;">
+          Adjunta una captura de tu pago por Yape, Plin o transferencia.
+        </small>
+
+        <div
+                id="paymentProofPreviewBox"
+                style="display:none; margin-top:12px;"
+        >
+
+          <p style="margin-bottom:8px;">
+            <strong>Comprobante seleccionado:</strong>
+          </p>
+
+          <img
+                  id="paymentProofPreview"
+                  alt="Vista previa del comprobante"
+                  style="
+        width:100%;
+        max-width:220px;
+        max-height:280px;
+        object-fit:contain;
+        border-radius:10px;
+        border:1px solid #ddd;
+        background:#f7f7f7;
+        padding:5px;
+      "
+          >
+
+        </div>
+
+      </div>
+      <!-- NOTAS -->
+
+      <label>
+        Notas del pedido
+
+        <textarea
+                id="customerNotes"
+                rows="3"
+                placeholder="Ej. horario de entrega, indicaciones adicionales..."
+        ></textarea>
+
+      </label>
+
+
+      <!-- TOTAL -->
+
+      <div class="checkout-total">
+
+        <span>Total del pedido</span>
+
+        <b id="checkoutTotal">
+          S/ 0.00
+        </b>
+
+      </div>
+
+
+      <button
+              class="btn primary full"
+              id="confirmOrder"
+              type="submit"
+      >
+        Confirmar pedido
+      </button>
+
+
+      <p
+              class="form-message"
+              id="checkoutMsg"
+      ></p>
+
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="store.js"></script>
+</body>
+</html>

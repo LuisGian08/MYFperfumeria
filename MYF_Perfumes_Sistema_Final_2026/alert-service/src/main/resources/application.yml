@@ -1,0 +1,26 @@
+server:
+  port: ${SERVICE_PORT:8085}
+spring:
+  application:
+    name: alert-service
+  datasource:
+    url: jdbc:sqlserver://${DB_HOST:localhost}:${DB_PORT:1433};databaseName=MYF_Alerta_DB;encrypt=true;trustServerCertificate=true
+    username: ${DB_USER:myf_app}
+    password: ${DB_PASSWORD:MyfApp2026!}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASSWORD:guest}
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

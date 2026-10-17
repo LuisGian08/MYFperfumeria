@@ -1,0 +1,191 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: myf-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD}
+    ports: [ "1433:1433" ]
+    volumes: [ "myf_sql_data:/var/opt/mssql" ]
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: myf-db-init
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./database/Create_Databases.sql:/scripts/Create_Databases.sql:ro
+    depends_on:
+      - sqlserver
+    entrypoint: ["/bin/bash", "-c"]
+    command: >-
+      'SQLCMD=/opt/mssql-tools18/bin/sqlcmd;
+      if [ ! -x "$$SQLCMD" ]; then SQLCMD=/opt/mssql-tools/bin/sqlcmd; fi;
+      until "$$SQLCMD" -S sqlserver -U sa -P "$$DB_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1; do sleep 3; done;
+      "$$SQLCMD" -S sqlserver -U sa -P "$$DB_PASSWORD" -C -i /scripts/Create_Databases.sql'
+    restart: "no"
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: myf-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD}
+    ports: [ "5672:5672", "15672:15672" ]
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  auth:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    container_name: myf-auth
+    environment:
+      DB_HOST: sqlserver
+      DB_PORT: 1433
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+    ports: [ "8081:8081" ]
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  product:
+    build:
+      context: .
+      dockerfile: product-service/Dockerfile
+    container_name: myf-product
+    environment:
+      DB_HOST: sqlserver
+      DB_PORT: 1433
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    ports: [ "8082:8082" ]
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  inventory:
+    build:
+      context: .
+      dockerfile: inventory-service/Dockerfile
+    container_name: myf-inventory
+    environment:
+      DB_HOST: sqlserver
+      DB_PORT: 1433
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      RABBIT_HOST: rabbitmq
+      RABBIT_PORT: 5672
+      RABBIT_USER: ${RABBIT_USER}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD}
+    ports: [ "8083:8083" ]
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+
+  sales:
+    build:
+      context: .
+      dockerfile: sales-service/Dockerfile
+    container_name: myf-sales
+    environment:
+      DB_HOST: sqlserver
+      DB_PORT: 1433
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      RABBIT_HOST: rabbitmq
+      RABBIT_PORT: 5672
+      RABBIT_USER: ${RABBIT_USER}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD}
+      PRODUCT_SERVICE_URL: http://product:8082
+      INVENTORY_SERVICE_URL: http://inventory:8083
+    ports: [ "8084:8084" ]
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+
+  alert:
+    build:
+      context: .
+      dockerfile: alert-service/Dockerfile
+    container_name: myf-alert
+    environment:
+      DB_HOST: sqlserver
+      DB_PORT: 1433
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      RABBIT_HOST: rabbitmq
+      RABBIT_PORT: 5672
+      RABBIT_USER: ${RABBIT_USER}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD}
+    ports: [ "8085:8085" ]
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+
+  report:
+    build:
+      context: .
+      dockerfile: report-service/Dockerfile
+    container_name: myf-report
+    environment:
+      DB_HOST: sqlserver
+      DB_PORT: 1433
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      RABBIT_HOST: rabbitmq
+      RABBIT_PORT: 5672
+      RABBIT_USER: ${RABBIT_USER}
+      RABBIT_PASSWORD: ${RABBIT_PASSWORD}
+    ports: [ "8086:8086" ]
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway-service/Dockerfile
+    container_name: myf-gateway
+    environment:
+      DB_HOST: sqlserver
+      DB_PORT: 1433
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      AUTH_SERVICE_URL: http://auth:8081
+      PRODUCT_SERVICE_URL: http://product:8082
+      INVENTORY_SERVICE_URL: http://inventory:8083
+      SALES_SERVICE_URL: http://sales:8084
+      ALERT_SERVICE_URL: http://alert:8085
+      REPORT_SERVICE_URL: http://report:8086
+    ports: [ "8080:8080" ]
+    depends_on:
+      - auth
+      - product
+      - inventory
+      - sales
+      - alert
+      - report
+
+  frontend:
+    build: ./frontend
+    container_name: myf-frontend
+    ports: [ "5500:80" ]
+    depends_on: [ gateway ]
+
+volumes:
+  myf_sql_data:

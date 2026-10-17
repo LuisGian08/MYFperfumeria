@@ -1,0 +1,24 @@
+server:
+  port: ${SERVICE_PORT:8081}
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: jdbc:sqlserver://${DB_HOST:localhost}:${DB_PORT:1433};databaseName=MYF_Auth_DB;encrypt=true;trustServerCertificate=true
+    username: ${DB_USER:myf_app}
+    password: ${DB_PASSWORD:MyfApp2026!}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+jwt:
+  secret: ${JWT_SECRET:MYF-Perfumes-Dev-Secret-Key-Change-In-Production-2026-12345}
+  expiration-minutes: ${JWT_EXPIRATION_MINUTES:480}

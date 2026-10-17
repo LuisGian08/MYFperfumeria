@@ -1,0 +1,1 @@
+package com.myf.report; import org.springframework.boot.SpringApplication; import org.springframework.boot.autoconfigure.SpringBootApplication; @SpringBootApplication public class ReportApplication{public static void main(String[] a){SpringApplication.run(ReportApplication.class,a);}}
