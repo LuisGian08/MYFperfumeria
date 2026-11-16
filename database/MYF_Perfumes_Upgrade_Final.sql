@@ -35,6 +35,9 @@ CREATE TABLE dbo.Cliente(Id BIGINT IDENTITY PRIMARY KEY,Nombre NVARCHAR(180) NOT
 IF COL_LENGTH('dbo.Venta','ClienteId') IS NULL ALTER TABLE dbo.Venta ADD ClienteId BIGINT NULL;
 IF COL_LENGTH('dbo.Venta','Canal') IS NULL ALTER TABLE dbo.Venta ADD Canal NVARCHAR(20) NOT NULL CONSTRAINT DF_Venta_Canal DEFAULT N'ADMIN';
 IF COL_LENGTH('dbo.Venta','StockReintegrado') IS NULL ALTER TABLE dbo.Venta ADD StockReintegrado BIT NOT NULL CONSTRAINT DF_Venta_Reintegro DEFAULT 0;
+IF COL_LENGTH('dbo.Venta','EstadoPago') IS NULL ALTER TABLE dbo.Venta ADD EstadoPago NVARCHAR(255) NOT NULL CONSTRAINT DF_Venta_EstadoPago DEFAULT N'PENDIENTE';
+IF COL_LENGTH('dbo.Venta','TipoEntrega') IS NULL ALTER TABLE dbo.Venta ADD TipoEntrega NVARCHAR(255) NOT NULL CONSTRAINT DF_Venta_TipoEntrega DEFAULT N'RECOJO';
+IF COL_LENGTH('dbo.Venta','ComprobanteUrl') IS NULL ALTER TABLE dbo.Venta ADD ComprobanteUrl NVARCHAR(500) NULL;
 IF COL_LENGTH('dbo.DetalleVenta','PresentacionId') IS NULL ALTER TABLE dbo.DetalleVenta ADD PresentacionId BIGINT NULL;
 IF COL_LENGTH('dbo.DetalleVenta','VolumenMl') IS NULL ALTER TABLE dbo.DetalleVenta ADD VolumenMl DECIMAL(10,2) NULL;
 ALTER TABLE dbo.Venta ALTER COLUMN UsuarioId BIGINT NULL;

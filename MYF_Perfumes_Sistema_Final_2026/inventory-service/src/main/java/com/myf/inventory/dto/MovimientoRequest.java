@@ -1,1 +1,0 @@
-package com.myf.inventory.dto; import jakarta.validation.constraints.Min; public record MovimientoRequest(@Min(1) int cantidad,String motivo,Long usuarioId,Long referenciaVentaId){}

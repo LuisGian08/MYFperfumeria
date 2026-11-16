@@ -1,11 +1,25 @@
-$ports = @(8080,8081,8082,8083,8084,8085,8086,5500)
-foreach ($port in $ports) {
-  $connections = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-  foreach ($c in $connections) {
-    $p = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue
-    if ($p -and ($p.ProcessName -match 'java|python')) {
-      Write-Host "Deteniendo $($p.ProcessName) PID $($p.Id) en puerto $port"
-      Stop-Process -Id $p.Id -Force
-    }
-  }
+$ErrorActionPreference = "Stop"
+
+$composeFile = Join-Path $PSScriptRoot "docker-compose.yml"
+$envFile = Join-Path $PSScriptRoot ".env"
+$projectName = "myf_perfumes_sistema_final_2026"
+$docker = Get-Command docker -ErrorAction SilentlyContinue
+
+if (-not $docker) {
+    throw "Docker CLI was not found. Install Docker Desktop before stopping the stack."
 }
+
+$composeArgs = @(
+    "compose", "--project-name", $projectName,
+    "--file", $composeFile
+)
+if (Test-Path -LiteralPath $envFile) {
+    $composeArgs += @("--env-file", $envFile)
+}
+
+& $docker.Source @composeArgs stop
+if ($LASTEXITCODE -ne 0) {
+    throw "Could not stop the MYF Perfumes Docker stack."
+}
+
+Write-Host "MYF Perfumes containers stopped. Persistent data volumes were preserved." -ForegroundColor Green

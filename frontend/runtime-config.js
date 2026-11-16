@@ -1,0 +1,1 @@
+window.MYF_API = '';

@@ -5,6 +5,28 @@ const API_BASE = window.MYF_API ||
 
 const $ = id => document.getElementById(id);
 
+function assetUrl(path) {
+  if (!path) return '';
+
+  try {
+    const apiUrl = API_BASE ? new URL(API_BASE) : null;
+    const localApi = !apiUrl ||
+        apiUrl.hostname === 'localhost' ||
+        apiUrl.hostname === '127.0.0.1';
+    const base = localApi ? location.origin : apiUrl.origin;
+    const url = new URL(path, base);
+
+    if (!localApi &&
+        (url.hostname === 'localhost' || url.hostname === '127.0.0.1')) {
+      return new URL(`${url.pathname}${url.search}${url.hash}`, apiUrl.origin).href;
+    }
+
+    return url.href;
+  } catch {
+    return path;
+  }
+}
+
 let products = [],
     inventory = new Map(),
     filtered = [],
@@ -28,7 +50,7 @@ function imgHtml(p) {
 
   return `
         <img
-            src="${esc(p.imagenUrl)}"
+            src="${esc(assetUrl(p.imagenUrl))}"
             alt="${esc(p.nombre)}"
             onerror="this.onerror=null; this.style.display='none';"
         >
@@ -998,7 +1020,7 @@ function renderCart() {
 
                         ${
             x.imagenUrl
-                ? `<img src="${esc(x.imagenUrl)}">`
+                ? `<img src="${esc(assetUrl(x.imagenUrl))}">`
                 : 'MYF'
         }
 
@@ -1261,14 +1283,21 @@ $('closeCheckout').onclick = () => {
 
 function updateDeliveryFields() {
 
-  const tipoEntrega =
-      $('customerDelivery').value;
+  const deliverySelect =
+      $('customerDelivery');
 
   const addressBox =
       $('deliveryAddressBox');
 
   const addressInput =
       $('customerAddress');
+
+  if (!deliverySelect || !addressBox || !addressInput) {
+    return;
+  }
+
+  const tipoEntrega =
+      deliverySelect.value;
 
 
   if (tipoEntrega === 'DELIVERY') {
@@ -1293,7 +1322,8 @@ function updateDeliveryFields() {
 }
 
 
-$('customerDelivery').onchange = () => {
+const deliverySelect = $('customerDelivery');
+if (deliverySelect) deliverySelect.onchange = () => {
 
   updateDeliveryFields();
   updatePaymentInfo();
@@ -1306,14 +1336,22 @@ $('customerDelivery').onchange = () => {
 
 function updatePaymentInfo() {
 
-    const metodo = $('customerPayment').value;
-    const tipoEntrega = $('customerDelivery').value;
+    const paymentSelect = $('customerPayment');
+    const deliverySelect = $('customerDelivery');
     const info = $('paymentInfo');
 
     const proofBox = $('paymentProofBox');
     const proofInput = $('paymentProof');
     const previewBox = $('paymentProofPreviewBox');
     const preview = $('paymentProofPreview');
+
+    if (!paymentSelect || !deliverySelect || !info || !proofBox ||
+        !proofInput || !previewBox || !preview) {
+        return;
+    }
+
+    const metodo = paymentSelect.value;
+    const tipoEntrega = deliverySelect.value;
 
     const total = cart.reduce(
         (suma, x) => suma + (x.precio * x.cantidad),
@@ -1578,7 +1616,8 @@ function updatePaymentInfo() {
 // VISTA PREVIA DEL COMPROBANTE
 // ======================================================
 
-$('paymentProof').onchange = function () {
+const paymentProofInput = $('paymentProof');
+if (paymentProofInput) paymentProofInput.onchange = function () {
 
     const archivo = this.files[0];
 
@@ -1667,15 +1706,18 @@ async function copyPaymentData(
 }
 
 
-$('customerPayment').onchange =
-    updatePaymentInfo;
+const paymentSelect = $('customerPayment');
+if (paymentSelect) {
+    paymentSelect.onchange = updatePaymentInfo;
+}
 
 
 // ======================================================
 // CONFIRMAR PEDIDO
 // ======================================================
 
-$('checkoutForm').onsubmit = async e => {
+const checkoutForm = $('checkoutForm');
+if (checkoutForm) checkoutForm.onsubmit = async e => {
 
     e.preventDefault();
 
@@ -1683,11 +1725,18 @@ $('checkoutForm').onsubmit = async e => {
         return;
     }
 
+    const deliverySelect = $('customerDelivery');
+    const paymentSelect = $('customerPayment');
+    if (!deliverySelect || !paymentSelect) {
+        toast('El formulario de compra está desactualizado. Recarga la página para continuar.');
+        return;
+    }
+
     const tipoEntrega =
-        $('customerDelivery').value;
+        deliverySelect.value;
 
     const metodoPago =
-        $('customerPayment').value;
+        paymentSelect.value;
 
     const proofInput =
         document.getElementById('paymentProof');

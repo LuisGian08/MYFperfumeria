@@ -37,61 +37,70 @@ public class InventarioService {
 
     @Transactional
     public Inventario configurar(Long productoId, StockConfigRequest r) {
-        Inventario i = repo.findByProductoId(productoId).orElseGet(() -> nuevo(productoId));
+        var existente = repo.findByProductoId(productoId);
+        Inventario i = existente.orElseGet(() -> nuevo(productoId));
+        StockSnapshot anterior = existente.map(this::snapshot).orElse(null);
         if (r.stockActual() != null) i.setStockActual(r.stockActual());
         if (r.stockMinimo() != null) i.setStockMinimo(r.stockMinimo());
         if (r.volumenDecantMl() != null) i.setVolumenDecantMl(r.volumenDecantMl());
         if (r.volumenDecantMinimoMl() != null) i.setVolumenDecantMinimoMl(r.volumenDecantMinimoMl());
         i = repo.save(i);
-        verificar(i);
+        verificar(i, anterior);
         return i;
     }
 
     @Transactional
     public Inventario entrada(Long productoId, MovimientoRequest r) {
-        Inventario i = repo.findByProductoId(productoId).orElseGet(() -> nuevo(productoId));
+        var existente = repo.findByProductoId(productoId);
+        Inventario i = existente.orElseGet(() -> nuevo(productoId));
+        StockSnapshot anterior = existente.map(this::snapshot).orElse(null);
         i.setStockActual(i.getStockActual() + r.cantidad());
         i = repo.save(i);
         movimiento(productoId, "ENTRADA", r.cantidad(), "UNIDAD", r.motivo(), r.usuarioId(), r.referenciaVentaId());
-        verificar(i);
+        verificar(i, anterior);
         return i;
     }
 
     @Transactional
     public Inventario salida(Long productoId, MovimientoRequest r) {
         Inventario i = obtener(productoId);
+        StockSnapshot anterior = snapshot(i);
         if (i.getStockActual() < r.cantidad()) throw new IllegalArgumentException("Stock insuficiente");
         i.setStockActual(i.getStockActual() - r.cantidad());
         i = repo.save(i);
         movimiento(productoId, "SALIDA", r.cantidad(), "UNIDAD", r.motivo(), r.usuarioId(), r.referenciaVentaId());
-        verificar(i);
+        verificar(i, anterior);
         return i;
     }
 
     @Transactional
     public Inventario entradaDecant(Long productoId, MovimientoDecantRequest r) {
-        Inventario i = repo.findByProductoId(productoId).orElseGet(() -> nuevo(productoId));
+        var existente = repo.findByProductoId(productoId);
+        Inventario i = existente.orElseGet(() -> nuevo(productoId));
+        StockSnapshot anterior = existente.map(this::snapshot).orElse(null);
         i.setVolumenDecantMl(i.getVolumenDecantMl() + r.mililitros());
         i = repo.save(i);
         movimiento(productoId, "DECANT_ENTRADA", r.mililitros(), "ML", r.motivo(), r.usuarioId(), r.referenciaVentaId());
-        verificar(i);
+        verificar(i, anterior);
         return i;
     }
 
     @Transactional
     public Inventario salidaDecant(Long productoId, MovimientoDecantRequest r) {
         Inventario i = obtener(productoId);
+        StockSnapshot anterior = snapshot(i);
         if (i.getVolumenDecantMl() < r.mililitros()) throw new IllegalArgumentException("Volumen insuficiente para decant");
         i.setVolumenDecantMl(i.getVolumenDecantMl() - r.mililitros());
         i = repo.save(i);
         movimiento(productoId, "DECANT_SALIDA", r.mililitros(), "ML", r.motivo(), r.usuarioId(), r.referenciaVentaId());
-        verificar(i);
+        verificar(i, anterior);
         return i;
     }
 
     @Transactional
     public Inventario abrirBotellaParaDecants(Long productoId, AbrirBotellaRequest r) {
         Inventario i = obtener(productoId);
+        StockSnapshot anterior = snapshot(i);
         if (i.getStockActual() < 1) throw new IllegalArgumentException("No hay botellas cerradas disponibles para abrir");
         i.setStockActual(i.getStockActual() - 1);
         i.setVolumenDecantMl(i.getVolumenDecantMl() + r.mililitros());
@@ -99,7 +108,7 @@ public class InventarioService {
         String motivo = (r.motivo() == null || r.motivo().isBlank()) ? "Botella abierta para decants" : r.motivo();
         movimiento(productoId, "BOTELLA_ABIERTA", 1, "UNIDAD", motivo, r.usuarioId(), null);
         movimiento(productoId, "DECANT_ENTRADA", r.mililitros(), "ML", motivo, r.usuarioId(), null);
-        verificar(i);
+        verificar(i, anterior);
         return i;
     }
 
@@ -113,12 +122,19 @@ public class InventarioService {
         m.setMotivo(motivo); m.setUsuarioId(usuarioId); m.setReferenciaVentaId(ventaId); movs.save(m);
     }
 
-    private void verificar(Inventario i) {
+    private StockSnapshot snapshot(Inventario i) {
+        return new StockSnapshot(i.getStockActual(), i.getStockMinimo(),
+                i.getVolumenDecantMl(), i.getVolumenDecantMinimoMl());
+    }
+
+    private void verificar(Inventario i, StockSnapshot anterior) {
         if (i.getStockMinimo() > 0 && i.getStockActual() <= i.getStockMinimo()) {
             String tipo = i.getStockActual() == 0 ? "SIN_STOCK" : "STOCK_BAJO";
             publicar("stock.low", new StockLowEvent(i.getProductoId(), i.getStockActual(), i.getStockMinimo(), tipo, "UNIDAD",
                     "Producto " + i.getProductoId() + " con " + i.getStockActual() + " botellas disponibles"));
-        } else if (i.getStockMinimo() > 0) {
+        } else if (anterior != null && anterior.stockMinimo() > 0
+                && anterior.stockActual() <= anterior.stockMinimo()
+                && i.getStockActual() > i.getStockMinimo()) {
             publicar("stock.recovered", new StockLowEvent(i.getProductoId(), i.getStockActual(), i.getStockMinimo(), "RECUPERADO", "UNIDAD",
                     "Stock de botellas recuperado"));
         }
@@ -127,7 +143,9 @@ public class InventarioService {
             String tipo = i.getVolumenDecantMl() == 0 ? "SIN_VOLUMEN_DECANT" : "VOLUMEN_BAJO";
             publicar("stock.low", new StockLowEvent(i.getProductoId(), i.getVolumenDecantMl(), i.getVolumenDecantMinimoMl(), tipo, "ML",
                     "Producto " + i.getProductoId() + " con " + i.getVolumenDecantMl() + " ml para decants"));
-        } else if (i.getVolumenDecantMinimoMl() > 0) {
+        } else if (anterior != null && anterior.volumenDecantMinimoMl() > 0
+                && anterior.volumenDecantMl() <= anterior.volumenDecantMinimoMl()
+                && i.getVolumenDecantMl() > i.getVolumenDecantMinimoMl()) {
             publicar("stock.recovered", new StockLowEvent(i.getProductoId(), i.getVolumenDecantMl(), i.getVolumenDecantMinimoMl(), "RECUPERADO", "ML",
                     "Volumen de decants recuperado"));
         }
@@ -141,4 +159,7 @@ public class InventarioService {
             log.warn("No se pudo publicar evento {}: {}", routingKey, ex.getMessage());
         }
     }
+
+    private record StockSnapshot(Integer stockActual, Integer stockMinimo,
+                                 Integer volumenDecantMl, Integer volumenDecantMinimoMl) {}
 }

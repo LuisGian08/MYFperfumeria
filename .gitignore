@@ -3,3 +3,6 @@
 *.iml
 .DS_Store
 .env
+.env.integration
+/uploads/
+/frontend/uploads/

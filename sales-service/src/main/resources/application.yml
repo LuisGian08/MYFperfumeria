@@ -1,28 +1,16 @@
 server:
   port: ${SERVICE_PORT:8084}
-
 spring:
   application:
     name: sales-service
-
   datasource:
-    url: jdbc:sqlserver://${DB_HOST:localhost}:${DB_PORT:1433};databaseName=MYF_Venta_DB;encrypt=true;trustServerCertificate=true
-    username: ${DB_USER:myf_app}
-    password: ${DB_PASSWORD:MyfApp2026!}
-    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-
+    url: ${DB_URL:jdbc:sqlserver://localhost;instanceName=SQLEXPRESS;databaseName=MYF_Venta_DB;integratedSecurity=true;encrypt=true;trustServerCertificate=true}
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
       naming:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
-        implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl
     open-in-view: false
-    properties:
-      hibernate:
-        format_sql: true
-        default_schema: dbo
-
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
     port: ${RABBIT_PORT:5672}
@@ -32,13 +20,14 @@ spring:
 services:
   product-url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
   inventory-url: ${INVENTORY_SERVICE_URL:http://localhost:8083}
-
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
-
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}

@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$base = "http://localhost:8090"
+$base = "http://localhost:8080"
 Write-Host "1. Login"
 $login = Invoke-RestMethod -Method Post -Uri "$base/api/auth/login" -ContentType "application/json" -Body '{"email":"admin@myf.local","password":"Admin123*"}'
 $headers = @{ Authorization = "Bearer $($login.token)" }

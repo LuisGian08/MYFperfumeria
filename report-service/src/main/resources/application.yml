@@ -1,40 +1,29 @@
 server:
   port: ${SERVICE_PORT:8086}
-
 spring:
   application:
     name: report-service
-
   datasource:
-    url: jdbc:sqlserver://${DB_HOST:localhost}:${DB_PORT:1433};databaseName=MYF_Reporte_DB;encrypt=true;trustServerCertificate=true
-    username: ${DB_USER:myf_app}
-    password: ${DB_PASSWORD:MyfApp2026!}
-    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-
+    url: ${DB_URL:jdbc:sqlserver://localhost;instanceName=SQLEXPRESS;databaseName=MYF_Reporte_DB;integratedSecurity=true;encrypt=true;trustServerCertificate=true}
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
       naming:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
-        implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl
     open-in-view: false
-    properties:
-      hibernate:
-        format_sql: true
-        default_schema: dbo
-
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
     port: ${RABBIT_PORT:5672}
     username: ${RABBIT_USER:guest}
     password: ${RABBIT_PASSWORD:guest}
-
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
-
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}

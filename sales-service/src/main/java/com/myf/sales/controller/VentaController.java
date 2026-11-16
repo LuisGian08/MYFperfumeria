@@ -3,6 +3,15 @@ package com.myf.sales.controller;
 import com.myf.sales.dto.*;
 import com.myf.sales.service.VentaService;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.OpenAPIDefinition;
+import io.swagger.v3.oas.annotations.info.Info;
 
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +24,11 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/ventas")
+@Tag(name = "Ventas y pedidos", description = "Registro de ventas, checkout público y gestión de estados.")
+@OpenAPIDefinition(info = @Info(title = "MYF Perfumes - Ventas", version = "1.0.0",
+        description = "Ventas recalculan precios desde el catálogo y validan el inventario antes de registrar."))
+@SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT",
+        description = "Token JWT obtenido en el servicio de autenticación.")
 public class VentaController {
 
  private final VentaService service;
@@ -28,6 +42,7 @@ public class VentaController {
  // ======================================================
 
  @GetMapping
+ @Operation(summary = "Listar ventas", description = "Lista las ventas ordenadas desde la más reciente.", security = @SecurityRequirement(name = "bearerAuth"))
  public Object listar() {
   return service.listar();
  }
@@ -37,6 +52,7 @@ public class VentaController {
  // ======================================================
 
  @GetMapping("/{id}")
+ @Operation(summary = "Consultar venta", security = @SecurityRequirement(name = "bearerAuth"))
  public ResponseEntity<?> get(@PathVariable Long id) {
 
   try {
@@ -62,6 +78,12 @@ public class VentaController {
  // ======================================================
 
  @PostMapping
+ @Operation(summary = "Registrar venta administrativa", description = "Registra una venta de administración y descuenta stock. El descuento se valida en el servidor.",
+         security = @SecurityRequirement(name = "bearerAuth"),
+         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true,
+                 content = @Content(mediaType = "application/json",
+                         examples = @ExampleObject(name = "Venta administrativa",
+                                 value = "{\"usuarioId\":1,\"descuento\":0,\"metodoPago\":\"YAPE\",\"observacion\":\"Venta en tienda\",\"canal\":\"ADMIN\",\"cliente\":null,\"items\":[{\"productoId\":1,\"presentacionId\":1,\"cantidad\":1}]}"))))
  public ResponseEntity<?> crear(
          @Valid @RequestBody VentaRequest r) {
 
@@ -89,6 +111,11 @@ public class VentaController {
  // ======================================================
 
  @PostMapping("/checkout")
+ @Operation(summary = "Crear pedido desde la tienda", description = "Endpoint público. Recalcula precios y verifica stock en el backend; no acepta descuentos del cliente.",
+         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true,
+                 content = @Content(mediaType = "application/json",
+                         examples = @ExampleObject(name = "Checkout público",
+                                 value = "{\"descuento\":0,\"metodoPago\":\"YAPE\",\"observacion\":\"Entregar por la tarde\",\"canal\":\"WEB\",\"cliente\":{\"nombre\":\"Ana Pérez\",\"telefono\":\"999123456\",\"email\":\"ana@example.com\",\"direccion\":\"Lima\"},\"items\":[{\"productoId\":1,\"presentacionId\":2,\"cantidad\":2}]}"))))
  public ResponseEntity<?> checkout(
          @Valid @RequestBody VentaRequest r) {
 
@@ -116,6 +143,11 @@ public class VentaController {
  // ======================================================
 
  @PutMapping("/{id}/estado")
+ @Operation(summary = "Cambiar estado de pedido", description = "Actualiza el estado. Un pedido cancelado no se reactiva automáticamente.",
+         security = @SecurityRequirement(name = "bearerAuth"),
+         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true,
+                 content = @Content(mediaType = "application/json",
+                         examples = @ExampleObject(value = "{\"estado\":\"CONFIRMADO\"}"))))
  public ResponseEntity<?> estado(
          @PathVariable Long id,
          @Valid @RequestBody EstadoVentaRequest r) {
@@ -146,6 +178,7 @@ public class VentaController {
  // ======================================================
 
  @PutMapping("/{id}/pago")
+ @Operation(summary = "Cambiar estado del pago", security = @SecurityRequirement(name = "bearerAuth"))
  public ResponseEntity<?> estadoPago(
          @PathVariable Long id,
          @RequestBody Map<String, String> body) {
@@ -196,6 +229,7 @@ public class VentaController {
          value = "/{id}/comprobante",
          consumes = MediaType.MULTIPART_FORM_DATA_VALUE
  )
+ @Operation(summary = "Subir comprobante de pago")
  public ResponseEntity<?> subirComprobante(
          @PathVariable Long id,
          @RequestParam("comprobante")

@@ -110,14 +110,13 @@ Ejemplo: si hay 15 ml disponibles, se puede vender 5 ml o 10 ml, pero no 30 ml.
 
 Cuando una botella cerrada se destina a decants, el panel puede abrirla: el sistema resta 1 botella y suma los ml correspondientes al volumen disponible para decantar, dejando trazabilidad en movimientos.
 
-## Requisitos locales
+## Requisitos
 
-- Java 21.
-- Maven 3.9+.
-- IntelliJ IDEA.
-- SQL Server 2022/Express.
-- RabbitMQ o Docker Desktop.
-- Python 3 para servir el frontend local, si no usa Docker.
+- Docker Desktop con Docker Compose v2 para ejecutar el sistema completo.
+- Java 21 y Maven 3.9+ solo para ejecutar pruebas o depurar servicios fuera de Docker.
+- PowerShell en Windows para los scripts incluidos.
+
+El flujo soportado para el sistema completo es Docker Compose desde esta carpeta exterior. No requiere instalar SQL Server Express ni iniciar servicios Java manualmente.
 
 ## IMPORTANTE si ya tiene la versión anterior funcionando
 
@@ -133,102 +132,46 @@ El script agrega las columnas/tablas necesarias para decants, clientes, pedidos 
 
 Después inicie los servicios. Hibernate completará cualquier columna nueva pendiente mediante `ddl-auto: update`.
 
-## Instalación desde cero
+## Inicialización en Windows
 
-### 1. Crear las seis bases
-
-Ejecute en SQL Server:
-
-```text
-database/Create_Databases.sql
-```
-
-Las tablas se crean/actualizan al iniciar cada microservicio.
-
-### 2. Credenciales de desarrollo
-
-La configuración local conserva valores de desarrollo para facilitar la ejecución académica. Antes de producción cambie todos los secretos.
-
-Administrador inicial:
-
-```text
-Correo: admin@myf.local
-Contraseña: Admin123*
-```
-
-### 3. RabbitMQ
-
-RabbitMQ debe estar disponible en:
-
-```text
-localhost:5672
-```
-
-Panel web:
-
-```text
-http://localhost:15672
-```
-
-### 4. Ejecutar desde IntelliJ
-
-Abra la carpeta raíz del proyecto como proyecto Maven y ejecute:
-
-1. `AuthApplication`
-2. `ProductApplication`
-3. `InventoryApplication`
-4. `SalesApplication`
-5. `AlertApplication`
-6. `ReportApplication`
-7. `GatewayApplication`
-
-Luego, dentro de `frontend`:
-
-```powershell
-python -m http.server 5500
-```
-
-Abra:
-
-```text
-Tienda: http://localhost:5500/index.html
-Admin:  http://localhost:5500/admin.html
-```
-
-También puede ejecutar:
+1. Inicie Docker Desktop.
+2. Si todavía no existe `.env`, copie `.env.example` a `.env` y configure credenciales locales. No sobrescriba un `.env` existente.
+3. Desde PowerShell, en la raíz exterior del repositorio, ejecute:
 
 ```powershell
 .\run-all.ps1
 ```
 
-El script evita iniciar una segunda copia cuando uno de los puertos ya está ocupado.
+Si la política de PowerShell bloquea los scripts, usa el comando equivalente:
 
-Para detener los procesos locales del proyecto:
+```powershell
+docker compose --project-name myf_perfumes_sistema_final_2026 --file .\docker-compose.yml --env-file .\.env up -d --build
+```
+
+El script valida la configuración y construye/inicia el stack de esta carpeta. `db-init` crea las seis bases solo cuando faltan. Los contenedores usan los nombres internos de servicio (`product`, `inventory`, etc.) para comunicarse.
+
+Direcciones locales:
+
+- Tienda y administración: `http://localhost:5500`
+- API y Swagger consolidado: `http://localhost:8080/swagger-ui.html`
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3001` (usuario `admin`; contraseña configurada en `.env`)
+- RabbitMQ: `http://localhost:15672`
+
+Para consultar estado y registros:
+
+```powershell
+docker compose --project-name myf_perfumes_sistema_final_2026 ps
+docker compose --project-name myf_perfumes_sistema_final_2026 logs -f gateway
+```
+
+Para detener los contenedores sin borrar datos:
 
 ```powershell
 .\stop-all.ps1
 ```
 
-## Docker
-
-1. Copie `.env.example` como `.env`.
-2. Cambie las contraseñas/secretos del archivo `.env`.
-3. El servicio `db-init` espera a SQL Server y crea automáticamente las seis bases si todavía no existen.
-4. Ejecute:
-
-```bash
-docker compose up --build -d
-```
-
-Docker Compose contiene:
-
-- SQL Server
-- inicializador automático de bases (`db-init`)
-- RabbitMQ
-- 7 servicios Java
-- frontend con NGINX
-
-Los contenedores usan los nombres de servicio internos (`product`, `inventory`, etc.) para comunicarse entre ellos.
+El SQL Server, Prometheus y Grafana usan volúmenes persistentes. No ejecute `docker compose down -v`, porque borraría los datos guardados.
 
 ## APIs públicas de la tienda
 
@@ -318,7 +261,11 @@ Una cancelación reintegra al inventario las botellas o mililitros descontados, 
 
 ## Swagger
 
-Durante desarrollo:
+La documentación consolidada de los seis servicios está en:
+
+- `http://localhost:8080/swagger-ui.html`
+
+También se puede abrir cada servicio directamente:
 
 - `http://localhost:8081/swagger-ui.html`
 - `http://localhost:8082/swagger-ui.html`
@@ -326,6 +273,72 @@ Durante desarrollo:
 - `http://localhost:8084/swagger-ui.html`
 - `http://localhost:8085/swagger-ui.html`
 - `http://localhost:8086/swagger-ui.html`
+
+Cada servicio documenta sus operaciones, parámetros, validaciones y ejemplos de solicitudes. Las operaciones protegidas aparecen con el esquema `bearerAuth` (HTTP Bearer, JWT).
+
+Para probar operaciones administrativas:
+
+1. Ejecuta `POST /api/auth/login` desde Swagger con las credenciales de desarrollo configuradas para el entorno.
+2. Copia el valor `token` de la respuesta.
+3. Pulsa **Authorize**, pega el token y confirma; Swagger adjuntará la autorización a las operaciones protegidas.
+4. Las rutas públicas, como las consultas del catálogo y `POST /api/ventas/checkout`, no requieren autorización.
+
+El botón **Authorize** solo envía el token al probar las operaciones; la autorización real sigue aplicándose en el API Gateway.
+
+## Prometheus y Grafana
+
+`run-all.ps1` inicia Prometheus y Grafana junto con RabbitMQ. Prometheus recolecta las métricas Actuator de los seis servicios y del Gateway.
+
+- Grafana: `http://localhost:3001` por defecto (usuario `admin`; contraseña de `GRAFANA_PASSWORD` en `.env`). Cambia `GRAFANA_PORT` en `.env` para usar otro puerto del equipo anfitrión.
+- Prometheus: `http://localhost:9090`
+- Métricas de cada servicio: `http://localhost:<puerto>/actuator/prometheus`
+
+El datasource de Prometheus y el dashboard `MYF Perfumes - Servicios` se cargan automáticamente en Grafana. Los volúmenes Docker conservan historial de métricas y configuración del dashboard.
+
+## Publicar la tienda en Netlify con Cloudflare Tunnel
+
+Netlify publica únicamente los archivos estáticos del frontend. Cloudflare Tunnel conecta un hostname HTTPS con el Nginx del contenedor `frontend`; ese Nginx entrega imágenes/comprobantes y reenvía `/api/` al Gateway. No abras ni reenvíes al router los puertos de SQL Server, RabbitMQ ni los microservicios.
+
+1. En Cloudflare Zero Trust, crea un túnel administrado y agrega una ruta pública como `api.tudominio.com` hacia `http://frontend:80`. Usa el token del túnel en `CLOUDFLARE_TUNNEL_TOKEN` dentro del `.env` local; no lo subas a Git.
+2. Despliega este repositorio en Netlify con la configuración de [netlify.toml](./netlify.toml). En las variables de entorno del sitio configura `MYF_API=https://api.tudominio.com` (reemplaza el hostname por el de tu ruta Cloudflare) y vuelve a desplegar. El build genera `frontend/runtime-config.js`; la variable es una URL pública, no un secreto.
+3. En `.env`, agrega el origen exacto del sitio Netlify a `CORS_ALLOWED_ORIGINS`, separado por comas y sin rutas, por ejemplo `http://localhost:5500,https://tu-sitio.netlify.app`.
+4. Desde PowerShell, inicia/actualiza el Gateway y el túnel:
+
+   ```powershell
+   docker compose --project-name myf_perfumes_sistema_final_2026 --file .\docker-compose.yml --env-file .\.env --profile cloudflare up -d --build gateway cloudflared
+   ```
+
+El backend y el túnel deben permanecer activos en la PC para que la tienda pública pueda consultar el catálogo. Las imágenes y comprobantes siguen dependiendo del volumen local `uploads`. `runtime-config.js` conserva el comportamiento local para Docker; no pongas el token de Cloudflare en Netlify ni en archivos versionados.
+
+## Pruebas unitarias JUnit
+
+Las pruebas Java están en `src/test/java` de los siete módulos:
+
+- Gateway: `gateway-service/src/test/java/com/myf/gateway/JwtGatewayFilterTest.java`
+- Autenticación: `auth-service/src/test/java/com/myf/auth/service/AuthServiceTest.java`
+- Productos: `product-service/src/test/java/com/myf/product/service/ProductoServiceTest.java`
+- Inventario: `inventory-service/src/test/java/com/myf/inventory/service/InventarioServiceTest.java`
+- Ventas: `sales-service/src/test/java/com/myf/sales/service/VentaServiceTest.java`
+- Alertas: `alert-service/src/test/java/com/myf/alert/service/AlertListenerTest.java`
+- Reportes: `report-service/src/test/java/com/myf/report/service/ReportListenerTest.java`
+
+Desde PowerShell, situado en la raíz exterior del repositorio, ejecuta el comando del servicio que quieres probar. Por ejemplo:
+
+```powershell
+mvn -pl inventory-service test
+```
+
+Para ejecutar otro servicio, reemplaza `inventory-service` por `gateway-service`, `auth-service`, `product-service`, `sales-service`, `alert-service` o `report-service`. Cada comando ejecuta solo las pruebas del módulo seleccionado y genera su evidencia independiente. No requiere iniciar SQL Server ni RabbitMQ porque las dependencias externas se simulan. Surefire escribe archivos XML y TXT en `target/surefire-reports/` del módulo; se regeneran en cada ejecución y no se conservan en Git. El [informe de pruebas](UNIT-TEST-REPORT.md) contiene los siete comandos, el resultado individual y la ruta de cada reporte.
+
+## Entorno desechable para integración
+
+Para iniciar SQL Server y RabbitMQ aislados de la base principal:
+
+```powershell
+.\integration-env-start.ps1
+```
+
+Este entorno usa SQL Server en `localhost:14330` y RabbitMQ en `localhost:5673`. Para retirarlo, ejecuta `.\integration-env-stop.ps1`; no afecta los contenedores ni el volumen de la aplicación principal.
 
 ## Prueba rápida
 

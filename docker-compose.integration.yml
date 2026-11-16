@@ -1,0 +1,48 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env.integration}
+    ports:
+      - "127.0.0.1:14330:1433"
+    restart: "no"
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env.integration}
+    volumes:
+      - ./database/Create_Databases.sql:/scripts/Create_Databases.sql:ro
+    depends_on:
+      - sqlserver
+    entrypoint: ["/bin/bash", "-c"]
+    command: >-
+      SQLCMD=/opt/mssql-tools18/bin/sqlcmd;
+      if [ ! -x "$$SQLCMD" ]; then SQLCMD=/opt/mssql-tools/bin/sqlcmd; fi;
+      for attempt in $$(seq 1 60); do
+        if "$$SQLCMD" -S sqlserver -U sa -P "$$DB_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1; then
+          "$$SQLCMD" -S sqlserver -U sa -P "$$DB_PASSWORD" -C -i /scripts/Create_Databases.sql &&
+          echo "Integration databases are ready." &&
+          exit 0;
+        fi;
+        sleep 2;
+      done;
+      echo "SQL Server did not become ready in time." >&2;
+      exit 1
+    restart: "no"
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER:?Set RABBIT_USER in .env.integration}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD:?Set RABBIT_PASSWORD in .env.integration}
+    ports:
+      - "127.0.0.1:5673:5672"
+      - "127.0.0.1:15673:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: "no"

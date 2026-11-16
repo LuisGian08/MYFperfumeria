@@ -3,6 +3,28 @@ const API = window.MYF_API ||
         ? 'http://localhost:8080'
         : '');
 
+function assetUrl(path) {
+  if (!path) return '';
+
+  try {
+    const apiUrl = API ? new URL(API) : null;
+    const localApi = !apiUrl ||
+        apiUrl.hostname === 'localhost' ||
+        apiUrl.hostname === '127.0.0.1';
+    const base = localApi ? location.origin : apiUrl.origin;
+    const url = new URL(path, base);
+
+    if (!localApi &&
+        (url.hostname === 'localhost' || url.hostname === '127.0.0.1')) {
+      return new URL(`${url.pathname}${url.search}${url.hash}`, apiUrl.origin).href;
+    }
+
+    return url.href;
+  } catch {
+    return path;
+  }
+}
+
 let token = localStorage.getItem('myf_token');
 let userId = Number(localStorage.getItem('myf_user') || 1);
 
@@ -248,7 +270,7 @@ function renderProducts() {
                     <div class="thumb">
                         ${
         p.imagenUrl
-            ? `<img src="${p.imagenUrl}" alt="${p.nombre}">`
+            ? `<img src="${assetUrl(p.imagenUrl)}" alt="${p.nombre}">`
             : 'MYF'
     }
                     </div>
@@ -570,7 +592,7 @@ function openProductForm(id) {
     if (p.imagenUrl) {
 
       $('pImagePreview').src =
-          p.imagenUrl;
+          assetUrl(p.imagenUrl);
 
       $('pImagePreviewBox').style.display =
           'block';
@@ -1544,9 +1566,7 @@ async function loadOrders() {
       if (v.comprobanteUrl) {
 
         const comprobanteUrl =
-            v.comprobanteUrl.startsWith('http')
-                ? v.comprobanteUrl
-                : `http://localhost:8084${v.comprobanteUrl}`;
+            assetUrl(v.comprobanteUrl);
 
         comprobanteHtml = `
           <a
