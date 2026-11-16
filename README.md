@@ -310,7 +310,7 @@ Netlify publica únicamente los archivos estáticos del frontend. Cloudflare Tun
 
 El backend y el túnel deben permanecer activos en la PC para que la tienda pública pueda consultar el catálogo. Las imágenes y comprobantes siguen dependiendo del volumen local `uploads`. `runtime-config.js` conserva el comportamiento local para Docker; no pongas el token de Cloudflare en Netlify ni en archivos versionados.
 
-Netlify aplica los encabezados HTTP definidos en `frontend/_headers`. La CSP se publica inicialmente como `Content-Security-Policy-Report-Only` para identificar recursos que la política podría bloquear sin interrumpir la tienda. La web actualmente utiliza fuentes de Google Fonts, estilos inline y un hostname HTTPS dinámico para el API; revisa la consola del navegador y el siguiente escaneo antes de convertirla en una política obligatoria y restringir sus orígenes. Estas reglas aplican a los archivos estáticos de Netlify, no a las respuestas del API que pasan por Cloudflare Tunnel.
+Netlify aplica los encabezados HTTP definidos en `frontend/_headers`, incluida una CSP obligatoria. Los scripts quedan limitados al mismo origen; los estilos inline siguen permitidos por el HTML existente. Se usan fuentes del sistema para evitar depender de Google Fonts. Mientras se utilice Quick Tunnel, las conexiones e imágenes de la API se permiten desde `*.trycloudflare.com`; si cambia el mecanismo/hostname del túnel, ajusta esos orígenes y vuelve a desplegar. Estas reglas aplican a los archivos estáticos de Netlify, no a las respuestas del API que pasan por Cloudflare Tunnel.
 
 ## Pruebas unitarias JUnit
 
