@@ -34,4 +34,4 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Stack started. Web: http://localhost:5500 | API/Swagger: http://localhost:8080/swagger-ui.html" -ForegroundColor Green
-Write-Host "SQL Server data is persisted in the existing Docker volume; do not use 'down -v'." -ForegroundColor Yellow
+Write-Host "The four SQL Server databases use persistent volumes; do not use 'down -v'." -ForegroundColor Yellow

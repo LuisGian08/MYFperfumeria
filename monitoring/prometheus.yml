@@ -31,20 +31,6 @@ scrape_configs:
         labels:
           application: sales-service
 
-  - job_name: alert-service
-    metrics_path: /actuator/prometheus
-    static_configs:
-      - targets: [host.docker.internal:8085]
-        labels:
-          application: alert-service
-
-  - job_name: report-service
-    metrics_path: /actuator/prometheus
-    static_configs:
-      - targets: [host.docker.internal:8086]
-        labels:
-          application: report-service
-
   - job_name: gateway-service
     metrics_path: /actuator/prometheus
     static_configs:

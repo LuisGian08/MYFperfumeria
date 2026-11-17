@@ -1,0 +1,2 @@
+IF DB_ID(N'MYF_Inventario_DB') IS NULL CREATE DATABASE MYF_Inventario_DB;
+GO

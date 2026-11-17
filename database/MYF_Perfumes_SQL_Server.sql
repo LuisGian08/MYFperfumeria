@@ -9,12 +9,13 @@
    - Productos
    - Inventario
    - Ventas
-   - Alertas de stock
-   - Reportes
+   - Alertas integradas en Inventario
+   - Reportes integrados en Ventas
 
    NOTA:
-   Cada microservicio administra su propia base de datos.
-   No se crean claves foráneas entre bases de datos diferentes.
+   Este script histórico crea seis bases y elimina/recrea tablas.
+   NO usar para inicializar la arquitectura consolidada ni con datos reales.
+   La configuración actual usa cuatro bases independientes.
    ============================================================ */
 
 USE master;

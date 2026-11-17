@@ -23,10 +23,10 @@ spring:
               predicates:
                 - "Path=/api/ventas/**,/api/clientes/**"
             - id: alerts
-              uri: ${ALERT_SERVICE_URL:http://localhost:8085}
+              uri: ${INVENTORY_SERVICE_URL:http://localhost:8083}
               predicates: [ Path=/api/alertas/** ]
             - id: reports
-              uri: ${REPORT_SERVICE_URL:http://localhost:8086}
+              uri: ${SALES_SERVICE_URL:http://localhost:8084}
               predicates: [ Path=/api/reportes/** ]
             - id: openapi-auth
               uri: ${AUTH_SERVICE_URL:http://localhost:8081}
@@ -45,11 +45,11 @@ spring:
               predicates: [ Path=/v3/api-docs/sales ]
               filters: [ "RewritePath=/v3/api-docs/sales, /v3/api-docs" ]
             - id: openapi-alerts
-              uri: ${ALERT_SERVICE_URL:http://localhost:8085}
+              uri: ${INVENTORY_SERVICE_URL:http://localhost:8083}
               predicates: [ Path=/v3/api-docs/alerts ]
               filters: [ "RewritePath=/v3/api-docs/alerts, /v3/api-docs" ]
             - id: openapi-reports
-              uri: ${REPORT_SERVICE_URL:http://localhost:8086}
+              uri: ${SALES_SERVICE_URL:http://localhost:8084}
               predicates: [ Path=/v3/api-docs/reports ]
               filters: [ "RewritePath=/v3/api-docs/reports, /v3/api-docs" ]
 springdoc:
@@ -64,10 +64,6 @@ springdoc:
         url: /v3/api-docs/inventory
       - name: Sales
         url: /v3/api-docs/sales
-      - name: Alerts
-        url: /v3/api-docs/alerts
-      - name: Reports
-        url: /v3/api-docs/reports
 management:
   endpoints:
     web:

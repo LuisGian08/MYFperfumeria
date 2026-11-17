@@ -1,0 +1,2 @@
+IF DB_ID(N'MYF_Producto_DB') IS NULL CREATE DATABASE MYF_Producto_DB;
+GO

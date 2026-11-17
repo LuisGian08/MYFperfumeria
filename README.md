@@ -44,26 +44,25 @@ Tienda cliente ─┐
 Panel admin ────┘                         Product Service    :8082
                                           Inventory Service  :8083
                                           Sales Service      :8084
-                                          Alert Service      :8085
-                                          Report Service     :8086
                                                   │
                                     ┌─────────────┴─────────────┐
                                     │                           │
-                                SQL Server                  RabbitMQ
-                                 :1433                    :5672 / :15672
+                 4 SQL Server independientes             RabbitMQ
+                 Auth :14331, Product :14332          :5672 / :15672
+                 Inventory :14333, Sales :14334
 ```
 
-Cada microservicio conserva su propia base de datos:
+Alertas forman parte de Inventory Service y reportes de Sales Service. Las API públicas `/api/alertas/**` y `/api/reportes/**` se mantienen, por lo que el frontend conserva sus rutas.
+
+Cada dominio de datos tiene su propia instancia SQL Server y volumen:
 
 | Servicio | Puerto | Base de datos |
 |---|---:|---|
+| Auth Service | 8081 / SQL 14331 | MYF_Auth_DB |
+| Product Service | 8082 / SQL 14332 | MYF_Producto_DB |
+| Inventory Service | 8083 / SQL 14333 | MYF_Inventario_DB; alertas |
+| Sales Service | 8084 / SQL 14334 | MYF_Venta_DB; reportes |
 | Gateway | 8080 | — |
-| Auth | 8081 | MYF_Auth_DB |
-| Product | 8082 | MYF_Producto_DB |
-| Inventory | 8083 | MYF_Inventario_DB |
-| Sales | 8084 | MYF_Venta_DB |
-| Alert | 8085 | MYF_Alerta_DB |
-| Report | 8086 | MYF_Reporte_DB |
 
 ## RabbitMQ como BUS de eventos
 
@@ -84,9 +83,9 @@ Compra → Sales Service → Inventory Service
                          │
                          ├─ descuenta botella o ml
                          │
-                         └─ stock.low → RabbitMQ → Alert Service
+                         └─ stock.low → RabbitMQ → Inventory Service (alertas)
 
-Sales Service ── sale.created → RabbitMQ → Report Service
+Sales Service ── sale.created → RabbitMQ → Sales Service (reportes)
 ```
 
 ## Modelo de decants
@@ -118,19 +117,19 @@ Cuando una botella cerrada se destina a decants, el panel puede abrirla: el sist
 
 El flujo soportado para el sistema completo es Docker Compose desde esta carpeta exterior. No requiere instalar SQL Server Express ni iniciar servicios Java manualmente.
 
-## IMPORTANTE si ya tiene la versión anterior funcionando
+## Si ya tiene la versión anterior funcionando
 
 **No ejecute de nuevo el script antiguo que elimina tablas.**
 
-Abra SQL Server Management Studio y ejecute una sola vez:
+Si todavía usa una instancia compartida con las seis bases anteriores, haga primero backups. Antes de consolidar, abra SQL Server Management Studio y, si aún no lo aplicó, ejecute una sola vez:
 
 ```text
 database/MYF_Perfumes_Upgrade_Final.sql
 ```
 
-El script agrega las columnas/tablas necesarias para decants, clientes, pedidos y reportes sin borrar deliberadamente los datos existentes.
+El script agrega columnas/tablas necesarias para decants, clientes, pedidos, reportes y alertas sin borrar deliberadamente los datos existentes. Después siga la sección **Migración a las cuatro bases independientes**; no arranque la nueva aplicación hasta restaurar y verificar los cuatro backups consolidados.
 
-Después inicie los servicios. Hibernate completará cualquier columna nueva pendiente mediante `ddl-auto: update`.
+En una instalación limpia, `run-all.ps1` crea las cuatro bases y Hibernate prepara sus tablas al iniciar los servicios.
 
 ## Inicialización en Windows
 
@@ -148,7 +147,7 @@ Si la política de PowerShell bloquea los scripts, usa el comando equivalente:
 docker compose --project-name myf_perfumes_sistema_final_2026 --file .\docker-compose.yml --env-file .\.env up -d --build
 ```
 
-El script valida la configuración y construye/inicia el stack de esta carpeta. `db-init` crea las seis bases solo cuando faltan. Los contenedores usan los nombres internos de servicio (`product`, `inventory`, etc.) para comunicarse.
+El script valida la configuración y construye/inicia el stack de esta carpeta. Los cuatro trabajos `db-init-*` crean cada base solo cuando falta. Los contenedores usan nombres internos de servicio (`product-db`, `inventory-db`, etc.) para comunicarse.
 
 Direcciones locales:
 
@@ -173,19 +172,87 @@ Para detener los contenedores sin borrar datos:
 
 El SQL Server, Prometheus y Grafana usan volúmenes persistentes. No ejecute `docker compose down -v`, porque borraría los datos guardados.
 
-## Preparación para separar físicamente las bases de datos
+## Migración a las cuatro bases independientes
 
-La configuración opcional [docker-compose.separated-databases.yml](./docker-compose.separated-databases.yml) define seis instancias SQL Server, cada una con su propio volumen y puerto local (`14331`–`14336`). Están bajo el perfil `separated-databases`, por lo que no se inician con el flujo normal.
+El Compose principal ya define cuatro instancias SQL Server, pero **no copia datos automáticamente**. No ejecutes `run-all.ps1` con datos de producción hasta completar y verificar la migración. El procedimiento conserva las seis bases originales como respaldo y no las elimina.
 
-Esta configuración está preparada, pero no activa: los microservicios siguen conectados al SQL Server compartido `sqlserver`, y las nuevas instancias estarán vacías hasta restaurar en ellas una copia de sus bases. La migración requiere respaldar las seis bases, restaurarlas y cambiar las conexiones de cada microservicio; no elimine ni reutilice el volumen `myf_sql_data` durante ese proceso.
+### 1. Respaldar y detener escrituras
 
-Para validar la configuración sin iniciar contenedores:
+En SSMS conéctate a la instancia SQL Server que actualmente contiene `MYF_Auth_DB`, `MYF_Producto_DB`, `MYF_Inventario_DB`, `MYF_Venta_DB`, `MYF_Alerta_DB` y `MYF_Reporte_DB`. Haz un backup Full de las seis bases desde **Tasks > Back Up** y verifica que los archivos `.bak` se puedan leer. Mantén SQL Server disponible mientras realizas la consolidación.
 
-```powershell
-docker compose --project-name myf_perfumes_sistema_final_2026 --file .\docker-compose.yml --file .\docker-compose.separated-databases.yml --env-file .\.env --profile separated-databases config --quiet
+Detén los servicios de aplicación antiguos para evitar escrituras concurrentes y que los consumidores anteriores de RabbitMQ compitan con los nuevos. En Docker Desktop, identifica y detén Gateway, Auth, Product, Inventory, Sales, Alert, Report y Frontend; deja activo el SQL Server antiguo hasta terminar la consolidación y crear los cuatro backups finales. No uses `docker compose down -v` ni elimines contenedores/volúmenes. Si aún no aplicaste la actualización histórica `database/MYF_Perfumes_Upgrade_Final.sql`, verifica sus cambios antes de migrar; la tabla de alertas debe incluir `Unidad` y Reportes debe incluir las columnas de presentación e idempotencia.
+
+### 2. Consolidar tablas en la instancia original
+
+En SSMS, conéctate a la instancia original y abre `database/Consolidate_Reports_Alerts.sql`. Activa **Query > SQLCMD Mode** porque el script usa `:ON ERROR EXIT`, y ejecútalo una sola vez mientras la aplicación sigue detenida. El script copia sin borrar:
+
+- `ReporteVentaDiaria`, `ReporteProductoVendido` y `EventoVentaProcesado` a `MYF_Venta_DB`.
+- `AlertaStock` a `MYF_Inventario_DB`.
+
+El resultado final del script muestra filas de origen y destino. Confirma que coincidan las cantidades de cada tabla; si el script devuelve error o no coinciden, detente y conserva las bases originales. El script no elimina ni modifica las tablas de origen.
+
+### 3. Crear backups consolidados
+
+En SSMS, vuelve a generar backups Full de estas cuatro bases ya consolidadas:
+
+```text
+MYF_Auth_DB.bak
+MYF_Producto_DB.bak
+MYF_Inventario_DB.bak
+MYF_Venta_DB.bak
 ```
 
-Al probarlas, use el mismo proyecto y archivos Compose para que las instancias compartan la red Docker de la aplicación. La activación y migración de datos deben hacerse por separado y con respaldo verificado.
+Crea `.\database\backups` en la raíz del proyecto y copia allí esos cuatro archivos. La carpeta está excluida de Git porque puede contener información sensible.
+
+Después de confirmar que los cuatro archivos consolidados se pueden leer, detén el SQL Server antiguo para liberar memoria, pero conserva su contenedor/servicio y volumen como rollback. No lo vuelvas a iniciar junto con el nuevo stack durante la prueba.
+
+### 4. Iniciar solo los motores nuevos
+
+Desde PowerShell en la raíz del repositorio, con Docker Desktop activo y `.env` configurado:
+
+```powershell
+$compose = @("compose", "--project-name", "myf_perfumes_sistema_final_2026", "--file", ".\docker-compose.yml", "--env-file", ".\.env")
+docker @compose up -d auth-db product-db inventory-db sales-db
+docker @compose run --rm db-init-auth
+docker @compose run --rm db-init-product
+docker @compose run --rm db-init-inventory
+docker @compose run --rm db-init-sales
+```
+
+Los backups del host quedan visibles dentro de cada motor como `/var/opt/mssql/backup/`. Aún no inicies los servicios Java.
+
+### 5. Restaurar los backups en las instancias nuevas
+
+En SSMS, conéctate a cada puerto local y restaura el backup correspondiente:
+
+| Instancia en SSMS | Base |
+|---|---|
+| `localhost,14331` | `MYF_Auth_DB` |
+| `localhost,14332` | `MYF_Producto_DB` |
+| `localhost,14333` | `MYF_Inventario_DB` |
+| `localhost,14334` | `MYF_Venta_DB` |
+
+Para cada backup, ejecuta primero `RESTORE FILELISTONLY FROM DISK = N'/var/opt/mssql/backup/<archivo>.bak';` en la instancia destino. Usa los valores `LogicalName` del resultado en la restauración y asigna los archivos de datos/log a rutas únicas bajo `/var/opt/mssql/data/`. Ejemplo de forma (reemplaza los nombres lógicos por los obtenidos):
+
+```sql
+RESTORE DATABASE [MYF_Auth_DB]
+FROM DISK = N'/var/opt/mssql/backup/MYF_Auth_DB.bak'
+WITH MOVE N'<logical-data-name>' TO N'/var/opt/mssql/data/MYF_Auth_DB.mdf',
+     MOVE N'<logical-log-name>' TO N'/var/opt/mssql/data/MYF_Auth_DB_log.ldf',
+     REPLACE, RECOVERY, STATS = 5;
+```
+
+Si un backup contiene más archivos de datos, agrega un `MOVE` por cada archivo lógico. Repite el proceso con el nombre de archivo/base correspondiente. No sobrescribas los backups de origen ni elimines la instancia/volumen anterior.
+
+### 6. Verificar y arrancar la aplicación
+
+En cada destino, confirma que la base esté `ONLINE`; compara los recuentos de tablas con los de la instancia original y revisa que las tablas de reportes estén en `MYF_Venta_DB` y `AlertaStock` en `MYF_Inventario_DB`. Solo cuando las cuatro restauraciones estén verificadas, ejecuta:
+
+```powershell
+.\run-all.ps1
+```
+
+Prueba inicio de sesión, catálogo, checkout, inventario, alertas y reportes. Conserva los backups y volúmenes originales hasta completar la validación. Para rollback, detén esta aplicación y vuelve a conectar la versión/instancia anterior; nunca borres el volumen antiguo como parte de esta prueba.
 
 ## APIs públicas de la tienda
 
@@ -275,7 +342,7 @@ Una cancelación reintegra al inventario las botellas o mililitros descontados, 
 
 ## Swagger
 
-La documentación consolidada de los seis servicios está en:
+La documentación consolidada de los cuatro servicios está en:
 
 - `http://localhost:8080/swagger-ui.html`
 
@@ -285,10 +352,8 @@ También se puede abrir cada servicio directamente:
 - `http://localhost:8082/swagger-ui.html`
 - `http://localhost:8083/swagger-ui.html`
 - `http://localhost:8084/swagger-ui.html`
-- `http://localhost:8085/swagger-ui.html`
-- `http://localhost:8086/swagger-ui.html`
 
-Cada servicio documenta sus operaciones, parámetros, validaciones y ejemplos de solicitudes. Las operaciones protegidas aparecen con el esquema `bearerAuth` (HTTP Bearer, JWT).
+Alertas aparecen en la documentación de Inventory Service y reportes en la de Sales Service; se acceden mediante las rutas públicas preservadas `/api/alertas/**` y `/api/reportes/**`. Las operaciones protegidas aparecen con el esquema `bearerAuth` (HTTP Bearer, JWT).
 
 Para probar operaciones administrativas:
 
@@ -301,7 +366,7 @@ El botón **Authorize** solo envía el token al probar las operaciones; la autor
 
 ## Prometheus y Grafana
 
-`run-all.ps1` inicia Prometheus y Grafana junto con RabbitMQ. Prometheus recolecta las métricas Actuator de los seis servicios y del Gateway.
+`run-all.ps1` inicia Prometheus y Grafana junto con RabbitMQ. Prometheus recolecta las métricas Actuator de los cuatro servicios y del Gateway.
 
 - Grafana: `http://localhost:3001` por defecto (usuario `admin`; contraseña de `GRAFANA_PASSWORD` en `.env`). Cambia `GRAFANA_PORT` en `.env` para usar otro puerto del equipo anfitrión.
 - Prometheus: `http://localhost:9090`
@@ -328,15 +393,15 @@ Netlify aplica los encabezados HTTP definidos en `frontend/_headers`, incluida u
 
 ## Pruebas unitarias JUnit
 
-Las pruebas Java están en `src/test/java` de los siete módulos:
+Las pruebas Java están en `src/test/java` de los cinco módulos:
 
 - Gateway: `gateway-service/src/test/java/com/myf/gateway/JwtGatewayFilterTest.java`
 - Autenticación: `auth-service/src/test/java/com/myf/auth/service/AuthServiceTest.java`
 - Productos: `product-service/src/test/java/com/myf/product/service/ProductoServiceTest.java`
 - Inventario: `inventory-service/src/test/java/com/myf/inventory/service/InventarioServiceTest.java`
+- Alertas: `inventory-service/src/test/java/com/myf/inventory/service/AlertListenerTest.java`
 - Ventas: `sales-service/src/test/java/com/myf/sales/service/VentaServiceTest.java`
-- Alertas: `alert-service/src/test/java/com/myf/alert/service/AlertListenerTest.java`
-- Reportes: `report-service/src/test/java/com/myf/report/service/ReportListenerTest.java`
+- Reportes: `sales-service/src/test/java/com/myf/sales/service/ReportListenerTest.java`
 
 Desde PowerShell, situado en la raíz exterior del repositorio, ejecuta el comando del servicio que quieres probar. Por ejemplo:
 
@@ -344,7 +409,7 @@ Desde PowerShell, situado en la raíz exterior del repositorio, ejecuta el coman
 mvn -pl inventory-service test
 ```
 
-Para ejecutar otro servicio, reemplaza `inventory-service` por `gateway-service`, `auth-service`, `product-service`, `sales-service`, `alert-service` o `report-service`. Cada comando ejecuta solo las pruebas del módulo seleccionado y genera su evidencia independiente. No requiere iniciar SQL Server ni RabbitMQ porque las dependencias externas se simulan. Surefire escribe archivos XML y TXT en `target/surefire-reports/` del módulo; se regeneran en cada ejecución y no se conservan en Git. El [informe de pruebas](UNIT-TEST-REPORT.md) contiene los siete comandos, el resultado individual y la ruta de cada reporte.
+Para ejecutar otro servicio, reemplaza `inventory-service` por `gateway-service`, `auth-service`, `product-service` o `sales-service`. Alertas y reportes se prueban desde sus módulos integrados. Cada comando ejecuta pruebas del módulo seleccionado y genera evidencia independiente. No requiere iniciar SQL Server ni RabbitMQ porque las dependencias externas se simulan. Surefire escribe archivos XML y TXT en `target/surefire-reports/` del módulo; se regeneran en cada ejecución y no se conservan en Git. El [informe de pruebas](UNIT-TEST-REPORT.md) resume los módulos y comandos.
 
 ## Entorno desechable para integración
 
@@ -354,7 +419,7 @@ Para iniciar SQL Server y RabbitMQ aislados de la base principal:
 .\integration-env-start.ps1
 ```
 
-Este entorno usa SQL Server en `localhost:14330` y RabbitMQ en `localhost:5673`. Para retirarlo, ejecuta `.\integration-env-stop.ps1`; no afecta los contenedores ni el volumen de la aplicación principal.
+Este entorno usa SQL Server en `localhost:14330` con las cuatro bases de negocio y RabbitMQ en `localhost:5673`. Para retirarlo, ejecuta `.\integration-env-stop.ps1`; no afecta los contenedores ni los volúmenes de la aplicación principal.
 
 ## Prueba rápida
 

@@ -6,3 +6,4 @@
 .env.integration
 /uploads/
 /frontend/uploads/
+/database/backups/

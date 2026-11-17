@@ -1,29 +1,101 @@
-services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: myf-sqlserver
-    environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${DB_PASSWORD}
-    ports: [ "1433:1433" ]
-    volumes: [ "myf_sql_data:/var/opt/mssql" ]
+x-sqlserver: &sqlserver
+  image: mcr.microsoft.com/mssql/server:2022-latest
+  environment:
+    ACCEPT_EULA: "Y"
+    MSSQL_SA_PASSWORD: ${DB_PASSWORD}
+  restart: unless-stopped
 
-  db-init:
-    image: mcr.microsoft.com/mssql-tools:latest
-    container_name: myf-db-init
-    environment:
-      DB_PASSWORD: ${DB_PASSWORD}
+x-db-init: &db-init
+  image: mcr.microsoft.com/mssql-tools:latest
+  environment:
+    DB_PASSWORD: ${DB_PASSWORD}
+  entrypoint: ["/bin/bash", "-c"]
+  restart: "no"
+
+services:
+  auth-db:
+    <<: *sqlserver
+    container_name: myf-auth-db
+    ports: [ "127.0.0.1:14331:1433" ]
     volumes:
-      - ./database/Create_Databases.sql:/scripts/Create_Databases.sql:ro
+      - myf_auth_sql_data:/var/opt/mssql
+      - ./database/backups:/var/opt/mssql/backup:ro
+
+  product-db:
+    <<: *sqlserver
+    container_name: myf-product-db
+    ports: [ "127.0.0.1:14332:1433" ]
+    volumes:
+      - myf_product_sql_data:/var/opt/mssql
+      - ./database/backups:/var/opt/mssql/backup:ro
+
+  inventory-db:
+    <<: *sqlserver
+    container_name: myf-inventory-db
+    ports: [ "127.0.0.1:14333:1433" ]
+    volumes:
+      - myf_inventory_sql_data:/var/opt/mssql
+      - ./database/backups:/var/opt/mssql/backup:ro
+
+  sales-db:
+    <<: *sqlserver
+    container_name: myf-sales-db
+    ports: [ "127.0.0.1:14334:1433" ]
+    volumes:
+      - myf_sales_sql_data:/var/opt/mssql
+      - ./database/backups:/var/opt/mssql/backup:ro
+
+  db-init-auth:
+    <<: *db-init
+    container_name: myf-db-init-auth
+    volumes:
+      - ./database/Create_Auth_Database.sql:/scripts/Create_Database.sql:ro
     depends_on:
-      - sqlserver
-    entrypoint: ["/bin/bash", "-c"]
+      - auth-db
     command: >-
       'SQLCMD=/opt/mssql-tools18/bin/sqlcmd;
       if [ ! -x "$$SQLCMD" ]; then SQLCMD=/opt/mssql-tools/bin/sqlcmd; fi;
-      until "$$SQLCMD" -S sqlserver -U sa -P "$$DB_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1; do sleep 3; done;
-      "$$SQLCMD" -S sqlserver -U sa -P "$$DB_PASSWORD" -C -i /scripts/Create_Databases.sql'
-    restart: "no"
+      until "$$SQLCMD" -S auth-db -U sa -P "$$DB_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1; do sleep 3; done;
+      "$$SQLCMD" -S auth-db -U sa -P "$$DB_PASSWORD" -C -i /scripts/Create_Database.sql'
+
+  db-init-product:
+    <<: *db-init
+    container_name: myf-db-init-product
+    volumes:
+      - ./database/Create_Product_Database.sql:/scripts/Create_Database.sql:ro
+    depends_on:
+      - product-db
+    command: >-
+      'SQLCMD=/opt/mssql-tools18/bin/sqlcmd;
+      if [ ! -x "$$SQLCMD" ]; then SQLCMD=/opt/mssql-tools/bin/sqlcmd; fi;
+      until "$$SQLCMD" -S product-db -U sa -P "$$DB_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1; do sleep 3; done;
+      "$$SQLCMD" -S product-db -U sa -P "$$DB_PASSWORD" -C -i /scripts/Create_Database.sql'
+
+  db-init-inventory:
+    <<: *db-init
+    container_name: myf-db-init-inventory
+    volumes:
+      - ./database/Create_Inventory_Database.sql:/scripts/Create_Database.sql:ro
+    depends_on:
+      - inventory-db
+    command: >-
+      'SQLCMD=/opt/mssql-tools18/bin/sqlcmd;
+      if [ ! -x "$$SQLCMD" ]; then SQLCMD=/opt/mssql-tools/bin/sqlcmd; fi;
+      until "$$SQLCMD" -S inventory-db -U sa -P "$$DB_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1; do sleep 3; done;
+      "$$SQLCMD" -S inventory-db -U sa -P "$$DB_PASSWORD" -C -i /scripts/Create_Database.sql'
+
+  db-init-sales:
+    <<: *db-init
+    container_name: myf-db-init-sales
+    volumes:
+      - ./database/Create_Sales_Database.sql:/scripts/Create_Database.sql:ro
+    depends_on:
+      - sales-db
+    command: >-
+      'SQLCMD=/opt/mssql-tools18/bin/sqlcmd;
+      if [ ! -x "$$SQLCMD" ]; then SQLCMD=/opt/mssql-tools/bin/sqlcmd; fi;
+      until "$$SQLCMD" -S sales-db -U sa -P "$$DB_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1; do sleep 3; done;
+      "$$SQLCMD" -S sales-db -U sa -P "$$DB_PASSWORD" -C -i /scripts/Create_Database.sql'
 
   rabbitmq:
     image: rabbitmq:4-management
@@ -44,9 +116,9 @@ services:
       dockerfile: auth-service/Dockerfile
     container_name: myf-auth
     environment:
-      DB_HOST: sqlserver
+      DB_HOST: auth-db
       DB_PORT: 1433
-      DB_URL: jdbc:sqlserver://sqlserver:1433;databaseName=MYF_Auth_DB;user=${DB_USER};password=${DB_PASSWORD};encrypt=true;trustServerCertificate=true
+      DB_URL: jdbc:sqlserver://auth-db:1433;databaseName=MYF_Auth_DB;user=${DB_USER};password=${DB_PASSWORD};encrypt=true;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       DB_USER: ${DB_USER}
@@ -54,7 +126,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
     ports: [ "8081:8081" ]
     depends_on:
-      db-init:
+      db-init-auth:
         condition: service_completed_successfully
 
   product:
@@ -63,9 +135,9 @@ services:
       dockerfile: product-service/Dockerfile
     container_name: myf-product
     environment:
-      DB_HOST: sqlserver
+      DB_HOST: product-db
       DB_PORT: 1433
-      DB_URL: jdbc:sqlserver://sqlserver:1433;databaseName=MYF_Producto_DB;user=${DB_USER};password=${DB_PASSWORD};encrypt=true;trustServerCertificate=true
+      DB_URL: jdbc:sqlserver://product-db:1433;databaseName=MYF_Producto_DB;user=${DB_USER};password=${DB_PASSWORD};encrypt=true;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       DB_USER: ${DB_USER}
@@ -74,7 +146,7 @@ services:
     volumes:
       - ./uploads:/app/uploads
     depends_on:
-      db-init:
+      db-init-product:
         condition: service_completed_successfully
 
   inventory:
@@ -83,9 +155,9 @@ services:
       dockerfile: inventory-service/Dockerfile
     container_name: myf-inventory
     environment:
-      DB_HOST: sqlserver
+      DB_HOST: inventory-db
       DB_PORT: 1433
-      DB_URL: jdbc:sqlserver://sqlserver:1433;databaseName=MYF_Inventario_DB;user=${DB_USER};password=${DB_PASSWORD};encrypt=true;trustServerCertificate=true
+      DB_URL: jdbc:sqlserver://inventory-db:1433;databaseName=MYF_Inventario_DB;user=${DB_USER};password=${DB_PASSWORD};encrypt=true;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       DB_USER: ${DB_USER}
@@ -96,7 +168,7 @@ services:
       RABBIT_PASSWORD: ${RABBIT_PASSWORD}
     ports: [ "8083:8083" ]
     depends_on:
-      db-init:
+      db-init-inventory:
         condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
@@ -107,9 +179,9 @@ services:
       dockerfile: sales-service/Dockerfile
     container_name: myf-sales
     environment:
-      DB_HOST: sqlserver
+      DB_HOST: sales-db
       DB_PORT: 1433
-      DB_URL: jdbc:sqlserver://sqlserver:1433;databaseName=MYF_Venta_DB;user=${DB_USER};password=${DB_PASSWORD};encrypt=true;trustServerCertificate=true
+      DB_URL: jdbc:sqlserver://sales-db:1433;databaseName=MYF_Venta_DB;user=${DB_USER};password=${DB_PASSWORD};encrypt=true;trustServerCertificate=true
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       DB_USER: ${DB_USER}
@@ -124,55 +196,7 @@ services:
     volumes:
       - ./uploads:/app/uploads
     depends_on:
-      db-init:
-        condition: service_completed_successfully
-      rabbitmq:
-        condition: service_healthy
-
-  alert:
-    build:
-      context: .
-      dockerfile: alert-service/Dockerfile
-    container_name: myf-alert
-    environment:
-      DB_HOST: sqlserver
-      DB_PORT: 1433
-      DB_URL: jdbc:sqlserver://sqlserver:1433;databaseName=MYF_Alerta_DB;user=${DB_USER};password=${DB_PASSWORD};encrypt=true;trustServerCertificate=true
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      RABBIT_HOST: rabbitmq
-      RABBIT_PORT: 5672
-      RABBIT_USER: ${RABBIT_USER}
-      RABBIT_PASSWORD: ${RABBIT_PASSWORD}
-    ports: [ "8085:8085" ]
-    depends_on:
-      db-init:
-        condition: service_completed_successfully
-      rabbitmq:
-        condition: service_healthy
-
-  report:
-    build:
-      context: .
-      dockerfile: report-service/Dockerfile
-    container_name: myf-report
-    environment:
-      DB_HOST: sqlserver
-      DB_PORT: 1433
-      DB_URL: jdbc:sqlserver://sqlserver:1433;databaseName=MYF_Reporte_DB;user=${DB_USER};password=${DB_PASSWORD};encrypt=true;trustServerCertificate=true
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      RABBIT_HOST: rabbitmq
-      RABBIT_PORT: 5672
-      RABBIT_USER: ${RABBIT_USER}
-      RABBIT_PASSWORD: ${RABBIT_PASSWORD}
-    ports: [ "8086:8086" ]
-    depends_on:
-      db-init:
+      db-init-sales:
         condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
@@ -183,26 +207,18 @@ services:
       dockerfile: gateway-service/Dockerfile
     container_name: myf-gateway
     environment:
-      DB_HOST: sqlserver
-      DB_PORT: 1433
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-http://localhost:5500,http://127.0.0.1:5500}"
       AUTH_SERVICE_URL: http://auth:8081
       PRODUCT_SERVICE_URL: http://product:8082
       INVENTORY_SERVICE_URL: http://inventory:8083
       SALES_SERVICE_URL: http://sales:8084
-      ALERT_SERVICE_URL: http://alert:8085
-      REPORT_SERVICE_URL: http://report:8086
     ports: [ "8080:8080" ]
     depends_on:
       - auth
       - product
       - inventory
       - sales
-      - alert
-      - report
 
   frontend:
     build: ./frontend
@@ -255,6 +271,9 @@ services:
     restart: unless-stopped
 
 volumes:
-  myf_sql_data:
+  myf_auth_sql_data:
+  myf_product_sql_data:
+  myf_inventory_sql_data:
+  myf_sales_sql_data:
   myf_prometheus_data:
   myf_grafana_data:

@@ -56,7 +56,7 @@ if (-not $rabbitReady) {
     throw "Disposable RabbitMQ did not become healthy. Inspect: docker logs myf-integration-rabbitmq"
 }
 
-Write-Host "Creating the six isolated integration databases..." -ForegroundColor Cyan
+Write-Host "Creating the four isolated integration databases..." -ForegroundColor Cyan
 & $docker.Source @composeArgs run --rm db-init
 if ($LASTEXITCODE -ne 0) {
     throw "Could not initialize integration databases. Inspect: docker logs myf-integration-sqlserver"
