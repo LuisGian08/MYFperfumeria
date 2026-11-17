@@ -173,6 +173,20 @@ Para detener los contenedores sin borrar datos:
 
 El SQL Server, Prometheus y Grafana usan volúmenes persistentes. No ejecute `docker compose down -v`, porque borraría los datos guardados.
 
+## Preparación para separar físicamente las bases de datos
+
+La configuración opcional [docker-compose.separated-databases.yml](./docker-compose.separated-databases.yml) define seis instancias SQL Server, cada una con su propio volumen y puerto local (`14331`–`14336`). Están bajo el perfil `separated-databases`, por lo que no se inician con el flujo normal.
+
+Esta configuración está preparada, pero no activa: los microservicios siguen conectados al SQL Server compartido `sqlserver`, y las nuevas instancias estarán vacías hasta restaurar en ellas una copia de sus bases. La migración requiere respaldar las seis bases, restaurarlas y cambiar las conexiones de cada microservicio; no elimine ni reutilice el volumen `myf_sql_data` durante ese proceso.
+
+Para validar la configuración sin iniciar contenedores:
+
+```powershell
+docker compose --project-name myf_perfumes_sistema_final_2026 --file .\docker-compose.yml --file .\docker-compose.separated-databases.yml --env-file .\.env --profile separated-databases config --quiet
+```
+
+Al probarlas, use el mismo proyecto y archivos Compose para que las instancias compartan la red Docker de la aplicación. La activación y migración de datos deben hacerse por separado y con respaldo verificado.
+
 ## APIs públicas de la tienda
 
 Sin JWT:
