@@ -1,0 +1,19 @@
+$kind: http-request
+url: http://localhost:8080/api/marcas
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"nombre\": \"Marcanueva\",\r
+
+    \  \"paisOrigen\": \"China\",\r
+
+    \  \"estado\": \"ACtivo\"\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{json_web_token_118h}}"
+order: 3000

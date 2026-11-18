@@ -1,0 +1,21 @@
+$kind: http-request
+url: http://localhost:8080/api/inventario/10002/decant/entrada
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"mililitros\":30,\r
+
+    \  \"motivo\": \"Ajuste de volumen\",\r
+
+    \  \"usuarioId\": 1,\r
+
+    \  \"referenciaVentaId\": null\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{json_web_token_118h}}"
+order: 7000

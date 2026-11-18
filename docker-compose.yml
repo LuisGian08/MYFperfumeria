@@ -124,7 +124,6 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-    ports: [ "8081:8081" ]
     depends_on:
       db-init-auth:
         condition: service_completed_successfully
@@ -142,7 +141,6 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-    ports: [ "8082:8082" ]
     volumes:
       - ./uploads:/app/uploads
     depends_on:
@@ -166,7 +164,6 @@ services:
       RABBIT_PORT: 5672
       RABBIT_USER: ${RABBIT_USER}
       RABBIT_PASSWORD: ${RABBIT_PASSWORD}
-    ports: [ "8083:8083" ]
     depends_on:
       db-init-inventory:
         condition: service_completed_successfully
@@ -192,7 +189,6 @@ services:
       RABBIT_PASSWORD: ${RABBIT_PASSWORD}
       PRODUCT_SERVICE_URL: http://product:8082
       INVENTORY_SERVICE_URL: http://inventory:8083
-    ports: [ "8084:8084" ]
     volumes:
       - ./uploads:/app/uploads
     depends_on:

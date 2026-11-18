@@ -41,7 +41,7 @@ public class VentaService {
   List<Prepared> prepared=new ArrayList<>(); BigDecimal subtotal=BigDecimal.ZERO;
 
   for(VentaRequest.Item item:r.items()){
-   ProductoDto p=client.get().uri(productUrl+"/api/productos/"+item.productoId()).retrieve().body(ProductoDto.class);
+   ProductoDto p=client.get().uri(productUrl+"/internal/api/productos/"+item.productoId()).retrieve().body(ProductoDto.class);
    if(p==null||!"ACTIVO".equals(p.estado())) throw new IllegalArgumentException("Producto inválido: "+item.productoId());
    ProductoDto.PresentacionDto pr=elegirPresentacion(p,item.presentacionId());
    InventarioDto inv=client.get().uri(inventoryUrl+"/api/inventario/"+item.productoId()).retrieve().body(InventarioDto.class);

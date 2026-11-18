@@ -1,0 +1,19 @@
+$kind: http-request
+url: http://localhost:8080/api/marcas/10002
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \  \"nombre\": \"Marca\",\r
+
+    \  \"paisOrigen\": \"Peru\",\r
+
+    \  \"estado\": \"Activo\"\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{json_web_token_118h}}"
+order: 5000

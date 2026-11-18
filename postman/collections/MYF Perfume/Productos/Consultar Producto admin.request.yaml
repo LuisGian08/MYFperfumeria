@@ -1,0 +1,8 @@
+$kind: http-request
+url: http://localhost:8080/api/admin/productos/4
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{json_web_token_0arx}}"
+order: 8000

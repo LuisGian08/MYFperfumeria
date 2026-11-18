@@ -1,0 +1,15 @@
+$kind: http-request
+url: http://localhost:8080/api/ventas/4/pago
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \  \"estadoPago\": \"PAGADO\"\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{json_web_token_118h}}"
+order: 10000

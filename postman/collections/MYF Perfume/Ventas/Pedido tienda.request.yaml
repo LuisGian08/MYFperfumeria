@@ -1,0 +1,47 @@
+$kind: http-request
+url: http://localhost:8080/api/ventas/checkout
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"descuento\": 0,\r
+
+    \  \"metodoPago\": \"YAPE\",\r
+
+    \  \"observacion\": \"Entregar por la tarde\",\r
+
+    \  \"canal\": \"WEB\",\r
+
+    \  \"cliente\": {\r
+
+    \    \"nombre\": \"Ana Pérez\",\r
+
+    \    \"telefono\": \"999123456\",\r
+
+    \    \"email\": \"ana@example.com\",\r
+
+    \    \"direccion\": \"Lima\"\r
+
+    \  },\r
+
+    \  \"items\": [\r
+
+    \    {\r
+
+    \      \"productoId\": 2,\r
+
+    \      \"presentacionId\": 10007,\r
+
+    \      \"cantidad\": 2\r
+
+    \    }\r
+
+    \  ]\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{json_web_token_118h}}"
+order: 9000

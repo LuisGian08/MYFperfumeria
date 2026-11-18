@@ -15,6 +15,10 @@ spring:
               uri: ${PRODUCT_SERVICE_URL:http://localhost:8082}
               predicates:
                 - "Path=/api/productos/**,/api/categorias/**,/api/marcas/**"
+            - id: admin-products
+              uri: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - "Path=/api/admin/productos,/api/admin/productos/**"
             - id: inventory
               uri: ${INVENTORY_SERVICE_URL:http://localhost:8083}
               predicates: [ Path=/api/inventario/** ]

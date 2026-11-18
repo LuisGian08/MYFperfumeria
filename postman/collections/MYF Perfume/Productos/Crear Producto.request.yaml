@@ -1,0 +1,67 @@
+$kind: http-request
+url: http://localhost:8080/api/productos
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"categoriaId\": 1,\r
+
+    \  \"marcaId\": 1,\r
+
+    \  \"codigo\": \"MYF-001\",\r
+
+    \  \"nombre\": \"Perfume de muestra\",\r
+
+    \  \"descripcion\": \"Fragancia\",\r
+
+    \  \"tipo\": \"PERFUME\",\r
+
+    \  \"volumenMl\": 100,\r
+
+    \  \"genero\": \"UNISEX\",\r
+
+    \  \"precio\": 250,\r
+
+    \  \"costo\": 150,\r
+
+    \  \"imagenUrl\": null,\r
+
+    \  \"presentaciones\": [\r
+
+    \    {\r
+
+    \      \"tipo\": \"BOTELLA\",\r
+
+    \      \"volumenMl\": 100,\r
+
+    \      \"precio\": 250,\r
+
+    \      \"costo\": 150,\r
+
+    \      \"activo\": true\r
+
+    \    },\r
+
+    \    {\r
+
+    \      \"tipo\": \"DECANT\",\r
+
+    \      \"volumenMl\": 10,\r
+
+    \      \"precio\": 35,\r
+
+    \      \"costo\": 15,\r
+
+    \      \"activo\": true\r
+
+    \    }\r
+
+    \  ]\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{json_web_token_0arx}}"
+order: 3000

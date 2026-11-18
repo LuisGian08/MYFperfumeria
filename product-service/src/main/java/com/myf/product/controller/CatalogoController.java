@@ -11,6 +11,7 @@ import java.util.*;
 
 @RestController
 @Tag(name = "Marcas y categorías", description = "Consulta pública y administración del catálogo auxiliar.")
+@SecurityRequirement(name = "bearerAuth")
 public class CatalogoController {
     private final CategoriaRepository categorias;
     private final MarcaRepository marcas;
@@ -21,7 +22,7 @@ public class CatalogoController {
     }
 
     @GetMapping("/api/categorias")
-    @Operation(summary = "Listar categorías", description = "Devuelve las categorías registradas; no requiere autenticación.")
+    @Operation(summary = "Listar categorías", description = "Devuelve categorías para uso administrativo.")
     public List<Categoria> categorias() { return categorias.findAll(); }
 
     @PostMapping("/api/categorias")
@@ -40,7 +41,7 @@ public class CatalogoController {
     }
 
     @GetMapping("/api/marcas")
-    @Operation(summary = "Listar marcas", description = "Devuelve las marcas registradas; no requiere autenticación.")
+    @Operation(summary = "Listar marcas", description = "Devuelve marcas para uso administrativo.")
     public List<Marca> marcas() { return marcas.findAll(); }
 
     @PostMapping("/api/marcas")

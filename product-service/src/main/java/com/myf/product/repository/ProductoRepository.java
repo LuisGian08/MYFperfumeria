@@ -9,6 +9,7 @@ import java.util.Optional;
 public interface ProductoRepository extends JpaRepository<Producto, Long> {
     @EntityGraph(attributePaths = {"categoria", "marca", "presentaciones"})
     List<Producto> findDistinctByEstadoOrderByNombreAsc(String estado);
+    List<Producto> findAllByOrderByNombreAsc();
 
     @Override
     @EntityGraph(attributePaths = {"categoria", "marca", "presentaciones"})

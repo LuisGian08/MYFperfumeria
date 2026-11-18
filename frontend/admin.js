@@ -232,7 +232,7 @@ async function loadProducts() {
   try {
 
     [products, brands, categories] = await Promise.all([
-      req('/api/productos'),
+      req('/api/admin/productos'),
       req('/api/marcas'),
       req('/api/categorias')
     ]);
@@ -277,7 +277,7 @@ function renderProducts() {
 
                     <div>
                         <b>${p.nombre}</b><br>
-                        <small>${p.codigo}</small>
+                        <small>${p.codigo} · ${p.estado}</small>
                     </div>
 
                 </div>
@@ -305,8 +305,8 @@ function renderProducts() {
 
                 ·
 
-                <button class="row-action" data-delete="${p.id}">
-                    Desactivar
+                <button class="row-action" data-product-state="${p.id}" data-next-state="${p.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'}">
+                    ${p.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'}
                 </button>
             </td>
 
@@ -323,10 +323,10 @@ function renderProducts() {
   });
 
 
-  document.querySelectorAll('[data-delete]').forEach(b => {
+  document.querySelectorAll('[data-product-state]').forEach(b => {
 
     b.onclick = () => {
-      deactivate(Number(b.dataset.delete));
+      changeProductState(Number(b.dataset.productState), b.dataset.nextState);
     };
   });
 }
@@ -476,8 +476,7 @@ $('pImageFile').onchange = async function () {
 
     // Guardamos URL de la imagen
 
-    $('pImage').value =
-        'http://localhost:8082' + datos.url;
+    $('pImage').value = datos.url;
 
 
     toast('Imagen subida correctamente');
@@ -860,25 +859,23 @@ $('productForm').onsubmit = async e => {
 // DESACTIVAR PRODUCTO
 // ======================================================
 
-async function deactivate(id) {
+async function changeProductState(id, estado) {
 
-  if (!confirm(
-      '¿Desactivar este producto?'
-  )) return;
+  const action = estado === 'ACTIVO' ? 'activar' : 'desactivar';
+  if (!confirm(`¿${action} este producto?`)) return;
 
 
   try {
 
     await req(
-        '/api/productos/' + id,
+        '/api/productos/' + id + '/estado',
         {
-          method: 'DELETE'
+          method: 'PUT',
+          body: JSON.stringify({ estado })
         }
     );
 
-    toast(
-        'Producto desactivado'
-    );
+    toast(`Producto ${estado === 'ACTIVO' ? 'activado' : 'desactivado'}`);
 
     loadProducts();
 
@@ -2242,7 +2239,7 @@ async function loadDashboard() {
 
       products =
           await req(
-              '/api/productos'
+              '/api/admin/productos'
           );
     }
 

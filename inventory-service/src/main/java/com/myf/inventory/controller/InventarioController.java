@@ -28,7 +28,8 @@ public class InventarioController {
     public InventarioController(InventarioService service) { this.service = service; }
 
     @GetMapping
-    @Operation(summary = "Consultar inventario", description = "Devuelve el stock por producto para mostrar disponibilidad pública.")
+    @Operation(summary = "Consultar inventario", description = "Devuelve las existencias detalladas para administración.",
+            security = @SecurityRequirement(name = "bearerAuth"))
     public Object listar() { return service.listar(); }
 
     @GetMapping("/movimientos")
@@ -39,7 +40,8 @@ public class InventarioController {
     }
 
     @GetMapping("/{productoId}")
-    @Operation(summary = "Consultar stock de un producto", description = "Devuelve unidades y mililitros disponibles para decants.")
+    @Operation(summary = "Consultar stock de un producto", description = "Devuelve unidades y mililitros disponibles para decants.",
+            security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<?> get(@PathVariable Long productoId) {
         try { return ResponseEntity.ok(service.obtener(productoId)); }
         catch (Exception e) { return ResponseEntity.status(404).body(Map.of("error", e.getMessage())); }

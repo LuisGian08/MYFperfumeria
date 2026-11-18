@@ -223,7 +223,7 @@ class VentaServiceTest {
     }
 
     private void expectAvailableBottleAndInventory(int stock) {
-        restServer.expect(requestTo(PRODUCT_URL + "/api/productos/1"))
+        restServer.expect(requestTo(PRODUCT_URL + "/internal/api/productos/1"))
                 .andExpect(method(GET))
                 .andRespond(withSuccess("""
                         {

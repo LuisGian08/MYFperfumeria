@@ -13,6 +13,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.List;
 
 @Component
@@ -24,14 +25,17 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
     @Override public Mono<Void> filter(ServerWebExchange exchange,GatewayFilterChain chain){
         String path=exchange.getRequest().getURI().getPath();HttpMethod method=exchange.getRequest().getMethod();
         if(PUBLIC_PATHS.stream().anyMatch(path::startsWith)) return chain.filter(exchange);
-        boolean publicInventory = path.equals("/api/inventario") || path.matches("/api/inventario/\\d+");
-        if(HttpMethod.GET.equals(method)&&(path.startsWith("/api/productos")||publicInventory||path.startsWith("/api/marcas")||path.startsWith("/api/categorias"))) return chain.filter(exchange);
+        boolean publicProduct = path.equals("/api/productos") || path.matches("/api/productos/\\d+");
+        if(HttpMethod.GET.equals(method)&&publicProduct) return chain.filter(exchange);
         if(HttpMethod.POST.equals(method)&&path.equals("/api/ventas/checkout")) return chain.filter(exchange);
         String header=exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if(header==null||!header.startsWith("Bearer ")){exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);return exchange.getResponse().setComplete();}
         try{
             Claims claims=Jwts.parser().verifyWith(key).build().parseSignedClaims(header.substring(7)).getPayload();
-            ServerWebExchange mutated=exchange.mutate().request(b->b.header("X-User-Email",claims.getSubject()).header("X-User-Id",String.valueOf(claims.get("userId")))).build();
+            Object roles=claims.get("roles");
+            boolean isAdmin=roles instanceof Collection<?> values&&values.contains("ADMIN");
+            if(!isAdmin){exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);return exchange.getResponse().setComplete();}
+            ServerWebExchange mutated=exchange.mutate().request(b->b.header("X-User-Email",claims.getSubject()).header("X-User-Id",String.valueOf(claims.get("userId"))).header("X-User-Role","ADMIN")).build();
             return chain.filter(mutated);
         }catch(Exception ex){exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);return exchange.getResponse().setComplete();}
     }

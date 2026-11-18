@@ -1,0 +1,11 @@
+$kind: http-request
+url: http://localhost:8080/api/ventas/10003/comprobante
+method: POST
+body:
+  type: json
+  content: ""
+auth:
+  type: bearer
+  credentials:
+    token: "{{json_web_token_118h}}"
+order: 8000

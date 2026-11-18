@@ -1,0 +1,19 @@
+$kind: http-request
+url: http://localhost:8080/api/categorias/10002
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \  \"nombre\": \"Nuevo\",\r
+
+    \  \"descripcion\": \"Destaca\",\r
+
+    \  \"estado\": \"Activo\"\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{json_web_token_118h}}"
+order: 6000

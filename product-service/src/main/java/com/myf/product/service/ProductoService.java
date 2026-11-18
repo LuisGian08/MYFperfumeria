@@ -22,13 +22,29 @@ public class ProductoService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProductoResponse> listar() {
-        return repo.findDistinctByEstadoOrderByNombreAsc("ACTIVO").stream().map(this::toResponse).toList();
+    public List<ProductoResponse> listarAdministracion() {
+        return repo.findAllByOrderByNombreAsc().stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductoCatalogoResponse> listarCatalogo() {
+        return repo.findDistinctByEstadoOrderByNombreAsc("ACTIVO").stream()
+                .map(this::toCatalogoResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public ProductoResponse obtener(Long id) {
         return toResponse(entidad(id));
+    }
+
+    @Transactional(readOnly = true)
+    public ProductoCatalogoResponse obtenerCatalogo(Long id) {
+        Producto producto = entidad(id);
+        if (!"ACTIVO".equals(producto.getEstado())) {
+            throw new IllegalArgumentException("Producto no encontrado");
+        }
+        return toCatalogoResponse(producto);
     }
 
     @Transactional
@@ -56,11 +72,15 @@ public class ProductoService {
     }
 
     @Transactional
-    public void desactivar(Long id) {
+    public ProductoResponse cambiarEstado(Long id, String estado) {
+        String nuevoEstado = estado == null ? "" : estado.trim().toUpperCase(Locale.ROOT);
+        if (!"ACTIVO".equals(nuevoEstado) && !"INACTIVO".equals(nuevoEstado)) {
+            throw new IllegalArgumentException("El estado debe ser ACTIVO o INACTIVO");
+        }
         Producto p = entidad(id);
-        p.setEstado("INACTIVO");
-        p.getPresentaciones().forEach(x -> x.setEstado("INACTIVO"));
-        repo.save(p);
+        p.setEstado(nuevoEstado);
+        p.getPresentaciones().forEach(x -> x.setEstado(nuevoEstado));
+        return toResponse(repo.save(p));
     }
 
     private Producto entidad(Long id) {
@@ -132,7 +152,6 @@ public class ProductoService {
 
     private ProductoResponse toResponse(Producto p) {
         var prs = p.getPresentaciones().stream()
-                .filter(x -> "ACTIVO".equals(x.getEstado()))
                 .sorted(Comparator.comparing(PresentacionProducto::getVolumenMl))
                 .map(x -> new ProductoResponse.PresentacionResponse(
                         x.getId(), x.getCodigo(), x.getTipo(), x.getVolumenMl(), x.getPrecio(),
@@ -147,6 +166,25 @@ public class ProductoService {
                 p.getMarca() == null ? null : p.getMarca().getNombre(),
                 p.getCodigo(), p.getNombre(), p.getDescripcion(), p.getGenero(), p.getImagenUrl(), p.getEstado(),
                 p.getTipo(), p.getVolumenMl(), p.getPrecio(), p.getCosto(), prs
+        );
+    }
+
+    private ProductoCatalogoResponse toCatalogoResponse(Producto producto) {
+        ProductoResponse response = toResponse(producto);
+        List<ProductoCatalogoResponse.Presentacion> presentations = response.presentaciones().stream()
+                .filter(p -> "ACTIVO".equals(p.estado()))
+                .map(p -> new ProductoCatalogoResponse.Presentacion(
+                        p.id(), p.tipo(), p.volumenMl(), p.precio()))
+                .toList();
+        return new ProductoCatalogoResponse(
+                response.id(),
+                response.categoria(),
+                response.marca(),
+                response.nombre(),
+                response.descripcion(),
+                response.precio(),
+                response.imagenUrl(),
+                presentations
         );
     }
 }

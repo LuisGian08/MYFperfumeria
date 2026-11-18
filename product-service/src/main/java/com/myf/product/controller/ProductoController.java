@@ -1,5 +1,6 @@
 package com.myf.product.controller;
 
+import com.myf.product.dto.EstadoProductoRequest;
 import com.myf.product.dto.ProductoRequest;
 import com.myf.product.service.ProductoService;
 import jakarta.validation.Valid;
@@ -38,19 +39,16 @@ public class ProductoController {
     }
 
     @GetMapping
-    @Operation(summary = "Listar productos activos", description = "Devuelve los productos activos y sus presentaciones disponibles para el catálogo público.",
-            responses = @ApiResponse(responseCode = "200", description = "Lista de productos",
-                    content = @Content(mediaType = "application/json",
-                            examples = @ExampleObject(value = "[{\"id\":1,\"categoriaId\":1,\"categoria\":\"Perfumes\",\"marcaId\":1,\"marca\":\"MYF\",\"codigo\":\"MYF-001\",\"nombre\":\"Perfume de muestra\",\"descripcion\":\"Fragancia\",\"genero\":\"UNISEX\",\"imagenUrl\":null,\"estado\":\"ACTIVO\",\"tipo\":\"PERFUME\",\"volumenMl\":100,\"precio\":250,\"costo\":150,\"presentaciones\":[{\"id\":1,\"codigo\":\"MYF-001-B-100-1\",\"tipo\":\"BOTELLA\",\"volumenMl\":100,\"precio\":250,\"costo\":150,\"estado\":\"ACTIVO\"}]}]"))))
+    @Operation(summary = "Listar catálogo público", description = "Devuelve solo datos comerciales públicos y los identificadores necesarios para crear pedidos.")
     public Object listar() {
-        return service.listar();
+        return service.listarCatalogo();
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Consultar producto", description = "Obtiene el detalle de un producto, incluidas sus presentaciones.")
+    @Operation(summary = "Consultar producto público", description = "Obtiene datos comerciales de un producto activo, sin costos ni estados internos.")
     public ResponseEntity<?> obtener(@PathVariable Long id) {
         try {
-            return ResponseEntity.ok(service.obtener(id));
+            return ResponseEntity.ok(service.obtenerCatalogo(id));
         } catch (Exception e) {
             return ResponseEntity.status(404)
                     .body(Map.of("error", e.getMessage()));
@@ -89,16 +87,17 @@ public class ProductoController {
         }
     }
 
-    @DeleteMapping("/{id}")
-    @Operation(summary = "Desactivar producto", description = "Desactiva el producto y sus presentaciones sin eliminar su historial.",
+    @PutMapping("/{id}/estado")
+    @Operation(summary = "Cambiar estado del producto", description = "Activa o desactiva el producto y sus presentaciones sin eliminar su historial.",
             security = @SecurityRequirement(name = "bearerAuth"),
-            responses = @ApiResponse(responseCode = "204", description = "Producto desactivado"))
-    public ResponseEntity<?> borrar(@PathVariable Long id) {
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true,
+                    content = @Content(mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"estado\":\"INACTIVO\"}"))))
+    public ResponseEntity<?> cambiarEstado(@PathVariable Long id, @Valid @RequestBody EstadoProductoRequest request) {
         try {
-            service.desactivar(id);
-            return ResponseEntity.noContent().build();
+            return ResponseEntity.ok(service.cambiarEstado(id, request.estado()));
         } catch (Exception e) {
-            return ResponseEntity.status(404)
+            return ResponseEntity.badRequest()
                     .body(Map.of("error", e.getMessage()));
         }
     }

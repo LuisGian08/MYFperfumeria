@@ -1,0 +1,19 @@
+$kind: http-request
+url: http://localhost:8080/api/categorias
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"nombre\": \"Lo mas nuevo\",\r
+
+    \  \"descripcion\": \"Destacados\",\r
+
+    \  \"estado\": \"Activo\"\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{json_web_token_118h}}"
+order: 4000

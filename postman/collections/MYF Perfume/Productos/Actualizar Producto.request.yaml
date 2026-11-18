@@ -1,0 +1,55 @@
+$kind: http-request
+url: http://localhost:8080/api/productos/10002
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \  \"categoriaId\": 2,\r
+
+    \  \"marcaId\": 3,\r
+
+    \  \"codigo\": \"PERF-OLOR\",\r
+
+    \  \"nombre\": \"Perfume de muestras\",\r
+
+    \  \"descripcion\": \"\",\r
+
+    \  \"tipo\": \"PERFUME\",\r
+
+    \  \"volumenMl\": 100,\r
+
+    \  \"genero\": \"HOMBRE\",\r
+
+    \  \"precio\": 350,\r
+
+    \  \"costo\": 0,\r
+
+    \  \"imagenUrl\": null,\r
+
+    \  \"presentaciones\": [\r
+
+    \    {\r
+
+    \      \"codigo\": \"PERF-OLOR-D-100-1\",\r
+
+    \      \"tipo\": \"DECANT\",\r
+
+    \      \"volumenMl\": 100,\r
+
+    \      \"precio\": 45,\r
+
+    \      \"costo\": 0,\r
+
+    \      \"activo\": true\r
+
+    \    }\r
+
+    \  ]\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: "{{json_web_token_0713}}"
+order: 4000

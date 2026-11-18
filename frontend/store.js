@@ -28,7 +28,6 @@ function assetUrl(path) {
 }
 
 let products = [],
-    inventory = new Map(),
     filtered = [],
     currentProduct = null,
     selectedPresentation = null,
@@ -136,18 +135,9 @@ async function loadCatalog() {
 
   try {
 
-    const [ps, inv] = await Promise.all([
-      get('/api/productos'),
-      get('/api/inventario').catch(() => [])
-    ]);
+    const ps = await get('/api/productos');
 
     products = ps || [];
-
-    inventory = new Map(
-        (inv || []).map(
-            x => [Number(x.productoId), x]
-        )
-    );
 
     buildCatalogFilters();
     applyFilters();
@@ -160,8 +150,7 @@ async function loadCatalog() {
                 <b>No se pudo cargar el catálogo.</b><br>
                 ${esc(e.message)}<br>
                 <small>
-                    Verifica que Gateway (8080),
-                    Product Service e Inventory Service estén encendidos.
+                    Verifica que Gateway (8080) y Product Service estén encendidos.
                 </small>
             </div>
         `;
@@ -212,126 +201,18 @@ function buildCatalogFilters() {
 
 
 function availability(p, pr) {
-
-  const inv = inventory.get(Number(p.id));
-
-  if (!inv) {
-
-    return {
-      ok: false,
-      qty: 0,
-      label: 'Sin inventario configurado',
-      level: 'out'
-    };
-  }
-
-  if (pr.tipo === 'DECANT') {
-
-    const ml =
-        Number(inv.volumenDecantMl || 0);
-
-    const size =
-        Number(pr.volumenMl || 0);
-
-    const q =
-        size
-            ? Math.floor(ml / size)
-            : 0;
-
-    return {
-
-      ok: q > 0,
-
-      qty: q,
-
-      label:
-          q > 0
-              ? `${ml} ml disponibles para decants`
-              : 'Sin volumen para decants',
-
-      level:
-          q === 0
-              ? 'out'
-              : ml <= Number(
-                  inv.volumenDecantMinimoMl || 20
-              )
-                  ? 'low'
-                  : 'ok'
-    };
-  }
-
-  const q =
-      Number(inv.stockActual || 0);
-
   return {
-
-    ok: q > 0,
-
-    qty: q,
-
-    label:
-        q > 0
-            ? `${q} botella${q === 1 ? '' : 's'} disponible${q === 1 ? '' : 's'}`
-            : 'Agotado',
-
-    level:
-        q === 0
-            ? 'out'
-            : q <= Number(inv.stockMinimo || 2)
-                ? 'low'
-                : 'ok'
+    ok: true,
+    qty: Number.POSITIVE_INFINITY,
+    label: 'Stock confirmado al finalizar el pedido',
+    level: 'ok'
   };
 }
 
-
-function productState(p) {
-
-  const prs =
-      (p.presentaciones || [])
-          .filter(
-              x => x.estado === 'ACTIVO'
-          );
-
-  if (!prs.length) {
-
-    return {
-      label: 'Sin presentaciones',
-      level: 'out'
-    };
-  }
-
-  const states =
-      prs.map(
-          pr => availability(p, pr)
-      );
-
-  if (
-      states.some(
-          x => x.level === 'ok'
-      )
-  ) {
-
-    return {
-      label: 'Disponible',
-      level: 'ok'
-    };
-  }
-
-  if (
-      states.some(
-          x => x.level === 'low'
-      )
-  ) {
-
-    return {
-      label: 'Pocas unidades',
-      level: 'low'
-    };
-  }
-
+function productState() {
   return {
-    label: 'Agotado',
-    level: 'out'
+    label: 'Consultar stock al comprar',
+    level: 'ok'
   };
 }
 
@@ -340,9 +221,6 @@ function minPrice(p) {
 
   const a =
       (p.presentaciones || [])
-          .filter(
-              x => x.estado === 'ACTIVO'
-          )
           .map(
               x => Number(x.precio)
           );
@@ -356,10 +234,7 @@ function minPrice(p) {
 function formatPresentations(p) {
 
   const a =
-      (p.presentaciones || [])
-          .filter(
-              x => x.estado === 'ACTIVO'
-          );
+      (p.presentaciones || []);
 
   return a
       .map(
@@ -424,7 +299,7 @@ function renderProducts() {
                         </div>
 
                         <div class="product-meta">
-                            ${esc(p.genero || 'UNISEX')}
+                            ${esc(p.categoria || 'Perfumes')}
                             ·
                             ${esc(formatPresentations(p))}
                         </div>
@@ -473,9 +348,6 @@ function applyFilters() {
   const category =
       $('filterCategory').value;
 
-  const gender =
-      $('filterGender').value;
-
   const type =
       $('filterType').value;
 
@@ -511,18 +383,9 @@ function applyFilters() {
             &&
 
             (
-                !gender ||
-                p.genero === gender
-            )
-
-            &&
-
-            (
                 !type ||
                 prs.some(
-                    x =>
-                        x.tipo === type &&
-                        x.estado === 'ACTIVO'
+                    x => x.tipo === type
                 )
             )
         );
@@ -536,7 +399,6 @@ function applyFilters() {
   'searchProduct',
   'filterBrand',
   'filterCategory',
-  'filterGender',
   'filterType'
 ]
     .forEach(id => {
@@ -555,7 +417,6 @@ $('clearFilters').onclick = () => {
   $('searchProduct').value = '';
   $('filterBrand').value = '';
   $('filterCategory').value = '';
-  $('filterGender').value = '';
   $('filterType').value = '';
 
   applyFilters();
@@ -614,10 +475,7 @@ function openProduct(id) {
   detailQty = 1;
 
   const active =
-      (currentProduct.presentaciones || [])
-          .filter(
-              x => x.estado === 'ACTIVO'
-          );
+      (currentProduct.presentaciones || []);
 
   selectedPresentation =
       active.find(
@@ -681,10 +539,7 @@ function renderProductDetail() {
       currentProduct;
 
   const prs =
-      (p.presentaciones || [])
-          .filter(
-              x => x.estado === 'ACTIVO'
-          );
+      (p.presentaciones || []);
 
   const av =
       selectedPresentation
@@ -714,9 +569,9 @@ function renderProductDetail() {
             </h2>
 
             <div class="product-meta">
-                ${esc(p.genero || 'UNISEX')}
+                ${esc(p.categoria || 'Perfumes')}
                 ·
-                Código ${esc(p.codigo || '')}
+                ${esc(formatPresentations(p))}
             </div>
 
             <p class="detail-description">

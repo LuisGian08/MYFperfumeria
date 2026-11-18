@@ -40,10 +40,8 @@ La versión final incluye dos interfaces separadas:
 
 ```text
 Tienda cliente ─┐
-                ├──> API Gateway :8080 ──> Auth Service      :8081
-Panel admin ────┘                         Product Service    :8082
-                                          Inventory Service  :8083
-                                          Sales Service      :8084
+                ├──> API Gateway :8080 ──> servicios internos (no publicados al host)
+Panel admin ────┘
                                                   │
                                     ┌─────────────┴─────────────┐
                                     │                           │
@@ -52,16 +50,16 @@ Panel admin ────┘                         Product Service    :8082
                  Inventory :14333, Sales :14334
 ```
 
-Alertas forman parte de Inventory Service y reportes de Sales Service. Las API públicas `/api/alertas/**` y `/api/reportes/**` se mantienen, por lo que el frontend conserva sus rutas.
+Alertas forman parte de Inventory Service y reportes de Sales Service. Las rutas `/api/alertas/**` y `/api/reportes/**` se mantienen para el panel administrativo.
 
 Cada dominio de datos tiene su propia instancia SQL Server y volumen:
 
 | Servicio | Puerto | Base de datos |
 |---|---:|---|
-| Auth Service | 8081 / SQL 14331 | MYF_Auth_DB |
-| Product Service | 8082 / SQL 14332 | MYF_Producto_DB |
-| Inventory Service | 8083 / SQL 14333 | MYF_Inventario_DB; alertas |
-| Sales Service | 8084 / SQL 14334 | MYF_Venta_DB; reportes |
+| Auth Service | Interno / SQL 14331 | MYF_Auth_DB |
+| Product Service | Interno / SQL 14332 | MYF_Producto_DB |
+| Inventory Service | Interno / SQL 14333 | MYF_Inventario_DB; alertas |
+| Sales Service | Interno / SQL 14334 | MYF_Venta_DB; reportes |
 | Gateway | 8080 | — |
 
 ## RabbitMQ como BUS de eventos
@@ -254,21 +252,25 @@ En cada destino, confirma que la base esté `ONLINE`; compara los recuentos de t
 
 Prueba inicio de sesión, catálogo, checkout, inventario, alertas y reportes. Conserva los backups y volúmenes originales hasta completar la validación. Para rollback, detén esta aplicación y vuelve a conectar la versión/instancia anterior; nunca borres el volumen antiguo como parte de esta prueba.
 
-## APIs públicas de la tienda
+## Acceso a las APIs
 
-Sin JWT:
+Usa siempre el Gateway en `http://localhost:8080`; los puertos HTTP de los microservicios no se publican al host.
+
+Sin JWT se permiten solamente las lecturas del catálogo comercial y el checkout:
 
 ```text
 GET  /api/productos
 GET  /api/productos/{id}
-GET  /api/categorias
-GET  /api/marcas
-GET  /api/inventario
-GET  /api/inventario/{productoId}
 POST /api/ventas/checkout
 ```
 
-Las operaciones administrativas `POST`, `PUT` y `DELETE` continúan protegidas por JWT, salvo el checkout público.
+El catálogo público incluye los IDs de producto y presentación necesarios para enviar pedidos, pero omite costos y estados internos. El checkout comprueba las existencias en el backend. No expone cantidades de inventario a la tienda.
+
+Todas las operaciones administrativas requieren iniciar sesión y enviar un JWT del rol `ADMIN` en `Authorization: Bearer <token>`. Esto incluye inventario, alertas, ventas, reportes, clientes, categorías y marcas. Los productos se pueden administrar en `GET /api/admin/productos`, que incluye productos activos e inactivos. Para activar/desactivar un producto usa `PUT /api/productos/{id}/estado` con `{"estado":"ACTIVO"}` o `{"estado":"INACTIVO"}`; no se elimina el historial.
+
+La API valida también en el servidor los precios, costos, volúmenes y cantidades: rechaza valores negativos; el stock configurado puede ser cero, mientras que los movimientos y artículos de venta requieren una cantidad mayor que cero.
+
+Después de esta actualización, vuelve a iniciar sesión para obtener un token con la información de rol.
 
 ## Ejemplo de producto con presentaciones
 
@@ -346,21 +348,14 @@ La documentación consolidada de los cuatro servicios está en:
 
 - `http://localhost:8080/swagger-ui.html`
 
-También se puede abrir cada servicio directamente:
-
-- `http://localhost:8081/swagger-ui.html`
-- `http://localhost:8082/swagger-ui.html`
-- `http://localhost:8083/swagger-ui.html`
-- `http://localhost:8084/swagger-ui.html`
-
-Alertas aparecen en la documentación de Inventory Service y reportes en la de Sales Service; se acceden mediante las rutas públicas preservadas `/api/alertas/**` y `/api/reportes/**`. Las operaciones protegidas aparecen con el esquema `bearerAuth` (HTTP Bearer, JWT).
+Alertas aparecen en la documentación de Inventory Service y reportes en la de Sales Service. Las operaciones administrativas aparecen con el esquema `bearerAuth` (HTTP Bearer, JWT) y además requieren rol `ADMIN`.
 
 Para probar operaciones administrativas:
 
 1. Ejecuta `POST /api/auth/login` desde Swagger con las credenciales de desarrollo configuradas para el entorno.
 2. Copia el valor `token` de la respuesta.
 3. Pulsa **Authorize**, pega el token y confirma; Swagger adjuntará la autorización a las operaciones protegidas.
-4. Las rutas públicas, como las consultas del catálogo y `POST /api/ventas/checkout`, no requieren autorización.
+4. Las rutas públicas, como las consultas del catálogo y `POST /api/ventas/checkout`, no requieren autorización. Las demás operaciones requieren un token del administrador. Los clientes invitados no pueden subir comprobantes mediante la API actual; habilitar esa acción requiere un mecanismo de autorización ligado al pedido, no hacer público el endpoint de carga.
 
 El botón **Authorize** solo envía el token al probar las operaciones; la autorización real sigue aplicándose en el API Gateway.
 
@@ -370,7 +365,7 @@ El botón **Authorize** solo envía el token al probar las operaciones; la autor
 
 - Grafana: `http://localhost:3001` por defecto (usuario `admin`; contraseña de `GRAFANA_PASSWORD` en `.env`). Cambia `GRAFANA_PORT` en `.env` para usar otro puerto del equipo anfitrión.
 - Prometheus: `http://localhost:9090`
-- Métricas de cada servicio: `http://localhost:<puerto>/actuator/prometheus`
+- Prometheus recolecta internamente las métricas de los servicios y del Gateway; los puertos HTTP de los microservicios no están publicados al host.
 
 El datasource de Prometheus y el dashboard `MYF Perfumes - Servicios` se cargan automáticamente en Grafana. Los volúmenes Docker conservan historial de métricas y configuración del dashboard.
 
